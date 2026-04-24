@@ -527,7 +527,8 @@ async function loadFromSheets() {
       shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
     ]);
     const empty = fondos.length<2 && cuentas.length<2 && cdp.length<2 && polizas.length<2 && bienes.length<2;
-    document.getElementById('emptyBanner').style.display = empty ? 'flex' : 'none';
+    const eb = document.getElementById('emptyBanner');
+    if(eb) eb.style.display = empty ? 'flex' : 'none';
     D = {
       tipo_cambio: parseFloat(cfg[1]?.[0])||510,
       fondos:   rowsToObjs(fondos),
@@ -579,6 +580,8 @@ function initGSI() {
   google.accounts.id.renderButton(document.getElementById('gBtn'),
     {theme:'outline',size:'large',text:'signin_with',shape:'pill',width:260,locale:'es',
      click_listener:()=>tokenClient.requestAccessToken()});
+  // Si había sesión guardada, pedir token silenciosamente
+  if(sessionStorage.getItem(SS_USER)) tokenClient.requestAccessToken({prompt:''});
 }
 
 async function handleToken(resp) {
