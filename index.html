@@ -113,6 +113,15 @@ header{background:var(--navy);padding:0 28px;height:64px;display:flex;
 .b-red{background:#fee2e2;color:#991b1b}
 .b-gray{background:#f1f5f9;color:#475569}
 
+/* CDP APPLIED */
+.row-applied{background:#f8fafc;color:#94a3b8}
+.row-applied td{color:#94a3b8!important;font-weight:400!important}
+.row-applied td:first-child{text-decoration:line-through}
+.btn-link{background:transparent;border:1px solid var(--border);color:var(--cyan);
+  padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;
+  font-family:var(--font);transition:.15s}
+.btn-link:hover{background:#ecfeff;border-color:var(--cyan)}
+
 /* TABLE CARD */
 .tc{background:var(--card);border-radius:16px;overflow:hidden;
   box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid var(--border);margin-bottom:20px}
@@ -393,10 +402,10 @@ const DEFAULT = {
     ['f4','Superfondo Colones','Alba María Varsi',4981917,'CRC','Mensual','Corto Plazo']
   ],
   cdp:[
-    ['c1','MARCHAMOS','Juan Carlos Hernández',1500000,'2026-12-01'],
-    ['c2','I ADELANTO RENTA','Juan Carlos Hernández',5000000,'2026-06-30'],
-    ['c3','II ADELANTO RENTA','Juan Carlos Hernández',7000000,'2026-08-31'],
-    ['c4','III ADELANTO RENTA','Juan Carlos Hernández',7000000,'2026-11-30']
+    ['c1','MARCHAMOS','Juan Carlos Hernández',1500000,'2026-12-01','vigente',''],
+    ['c2','I ADELANTO RENTA','Juan Carlos Hernández',5000000,'2026-06-30','vigente',''],
+    ['c3','II ADELANTO RENTA','Juan Carlos Hernández',7000000,'2026-08-31','vigente',''],
+    ['c4','III ADELANTO RENTA','Juan Carlos Hernández',7000000,'2026-11-30','vigente','']
   ],
   polizas:[
     ['p1','Seguro Vida Universal Dólares','Juan Carlos Hernández',100000,'USD',2199,'ANUAL'],
@@ -526,7 +535,7 @@ function defaultPayload(){
   return {
     CONFIG:    [['tipo_cambio','updated'],[DEFAULT.tipo_cambio, new Date().toISOString()]],
     FONDOS:    [['id','nombre','titular','saldo','moneda','tipo','vence'],...DEFAULT.fondos],
-    CDP:       [['id','nombre','titular','saldo','vence'],...DEFAULT.cdp],
+    CDP:       [['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],...DEFAULT.cdp],
     POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
     BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
     CUENTAS:   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas],
@@ -574,7 +583,7 @@ async function loadFromSheets() {
   toast('Cargando datos…', false);
   try {
     let [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
-      shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:E'),
+      shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
       shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J')
     ]);
     const miss = [];
@@ -596,7 +605,7 @@ async function loadFromSheets() {
         throw e;
       }
       [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
-        shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:E'),
+        shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
         shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J')
       ]);
     }
@@ -613,7 +622,7 @@ async function loadFromSheets() {
     };
     // Coerce numbers
     D.fondos.forEach(f=>{f.saldo=+f.saldo||0});
-    D.cdp.forEach(c=>{c.saldo=+c.saldo||0});
+    D.cdp.forEach(c=>{c.saldo=+c.saldo||0; c.estado=(c.estado||'vigente').toLowerCase(); c.fecha_aplicado=c.fecha_aplicado||'';});
     D.polizas.forEach(p=>{p.monto=+p.monto||0;p.ahorro=+p.ahorro||0});
     D.bienes.forEach(b=>{b.valor=+b.valor||0});
     D.historial.forEach(h=>{
@@ -852,27 +861,47 @@ function renderHistorial(){
 }
 
 // CDP
+let selCdpEstado = 'vigente';
 function renderCDP(){
-  const now=new Date(); const total=D.cdp.reduce((s,c)=>s+c.saldo,0);
-  const prox=[...D.cdp].sort((a,b)=>new Date(a.vence)-new Date(b.vence))[0];
+  const now=new Date();
+  const vigentes = D.cdp.filter(c=>c.estado!=='aplicado');
+  const aplicados = D.cdp.filter(c=>c.estado==='aplicado');
+  const shown = selCdpEstado==='aplicado'?aplicados:vigentes;
+  const totalVig = vigentes.reduce((s,c)=>s+c.saldo,0);
+  const prox = [...vigentes].sort((a,b)=>new Date(a.vence)-new Date(b.vence))[0];
   document.getElementById('cdpC').innerHTML=`
     <div class="info-box">💼 Abogado: <strong>Federico Altamura</strong> &nbsp;📞 8836-4617</div>
     <div class="kg" style="margin-bottom:20px">
-      <div class="kc"><div class="kl">🏦 Total CDPs</div><div class="kv">${fC(total)}</div><div class="ks">${fU(total/tc())} equiv.</div></div>
-      <div class="kc"><div class="kl">📅 Próximo vence</div><div class="kv" style="font-size:18px">${prox?.vence||'—'}</div><div class="ks">${prox?.nombre||''}</div></div>
+      <div class="kc"><div class="kl">🏦 Total CDPs Vigentes</div><div class="kv">${fC(totalVig)}</div><div class="ks">${fU(totalVig/tc())} equiv.</div></div>
+      <div class="kc"><div class="kl">📅 Próximo vence</div><div class="kv" style="font-size:18px">${prox?.vence||'—'}</div><div class="ks">${prox?.nombre||'—'}</div></div>
+    </div>
+    <div class="yr-row" style="margin-bottom:16px">
+      <button class="yr ${selCdpEstado==='vigente'?'active':''}" onclick="setCdpFilter('vigente')">Vigentes (${vigentes.length})</button>
+      <button class="yr ${selCdpEstado==='aplicado'?'active':''}" onclick="setCdpFilter('aplicado')">Aplicados (${aplicados.length})</button>
     </div>
     <div class="tc"><div class="tw"><table>
-      <thead><tr><th>Nombre</th><th>Titular</th><th>Saldo</th><th>Vencimiento</th><th>Estado</th></tr></thead>
-      <tbody>${D.cdp.map(c=>{
+      <thead><tr><th>Nombre</th><th>Titular</th><th>Saldo</th><th>Vencimiento</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${shown.length?shown.map(c=>{
+        if(c.estado==='aplicado'){
+          const fa = c.fecha_aplicado?new Date(c.fecha_aplicado).toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'}):'—';
+          return `<tr class="row-applied"><td style="font-weight:700">${c.nombre}</td>
+            <td>${c.titular}</td>
+            <td class="acrc">${fC(c.saldo)}</td>
+            <td>${new Date(c.vence).toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'})}</td>
+            <td><span class="b b-gray">✓ Aplicado · ${fa}</span></td>
+            <td><button class="btn-link" onclick="markCDP('${c.id}','vigente')">Deshacer</button></td></tr>`;
+        }
         const d=Math.ceil((new Date(c.vence)-now)/86400000);
         const sc=d<0?'b-red':d<90?'b-red':d<180?'b-amber':'b-green';
         const st=d<0?'Vencido':d<30?d+'d ⚠️':d+'d';
         return `<tr><td style="font-weight:700">${c.nombre}</td><td style="color:var(--muted)">${c.titular}</td>
           <td class="acrc">${fC(c.saldo)}</td>
           <td>${new Date(c.vence).toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'})}</td>
-          <td><span class="b ${sc}">${st}</span></td></tr>`;
-      }).join('')}</tbody></table></div></div>`;
+          <td><span class="b ${sc}">${st}</span></td>
+          <td><button class="btn-link" onclick="markCDP('${c.id}','aplicado')">✓ Marcar aplicado</button></td></tr>`;
+      }).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Sin CDPs ${selCdpEstado==='aplicado'?'aplicados':'vigentes'}</td></tr>`}</tbody></table></div></div>`;
 }
+function setCdpFilter(f){ selCdpEstado=f; renderCDP(); }
 
 // PÓLIZAS
 function renderPolizas(){
@@ -971,9 +1000,26 @@ async function saveCdp(){
   D.cdp.forEach((c,i)=>{c.nombre=document.getElementById('cn_'+i).value;
     c.saldo=parseFloat(document.getElementById('cs_'+i).value)||0;
     c.vence=document.getElementById('cv_'+i).value;});
-  await saveSection('CDP',['id','nombre','titular','saldo','vence'],
-    D.cdp.map(c=>[c.id,c.nombre,c.titular,c.saldo,c.vence]));
+  await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
+    D.cdp.map(c=>[c.id,c.nombre,c.titular,c.saldo,c.vence,c.estado||'vigente',c.fecha_aplicado||'']));
   renderAll(); closeMod('cdp');
+}
+async function markCDP(id, nuevoEstado){
+  const c = D.cdp.find(x=>x.id===id);
+  if(!c) return;
+  if(nuevoEstado==='aplicado'){
+    if(!confirm(`¿Marcar "${c.nombre}" como aplicado?\n\nSaldo: ${fC(c.saldo)}\nFecha de aplicación: hoy`)) return;
+    c.estado='aplicado';
+    c.fecha_aplicado=new Date().toISOString().substring(0,10);
+  } else {
+    c.estado='vigente';
+    c.fecha_aplicado='';
+  }
+  try{
+    await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
+      D.cdp.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.vence,x.estado||'vigente',x.fecha_aplicado||'']));
+    renderCDP();
+  }catch(e){ toast('❌ Error: '+e.message, true); }
 }
 
 function buildBienesForm(){
