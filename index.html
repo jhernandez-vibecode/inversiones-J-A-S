@@ -83,6 +83,17 @@ header{background:var(--navy);padding:0 28px;height:64px;display:flex;
 .ks{font-size:12px;color:var(--muted);margin-top:6px}
 .ktotal{background:linear-gradient(135deg,var(--navy),#1a3a6e);border-color:transparent}
 .ktotal .kl{color:#94a3b8}.ktotal .kv{color:#fff;font-size:28px}.ktotal .ks{color:#94a3b8}
+.kconsol{background:linear-gradient(135deg,#0ea5e9,#0369a1);border-color:transparent}
+.kconsol .kl{color:#e0f2fe}.kconsol .kv{color:#fff;font-size:28px}.kconsol .ks{color:#e0f2fe}
+.tc-edit{display:flex;align-items:center;gap:6px;margin-top:8px;background:rgba(255,255,255,.15);
+  border-radius:8px;padding:4px 8px;font-size:12px;color:#fff}
+.tc-edit input{background:transparent;border:0;color:#fff;font-weight:700;font-size:12px;
+  font-family:inherit;width:80px;outline:none;text-align:right}
+.tc-edit input::-webkit-outer-spin-button,.tc-edit input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.tc-edit button{background:#fff;color:#0369a1;border:0;border-radius:6px;padding:2px 10px;
+  font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.tc-edit button:hover{background:#f0f9ff}
+.tc-edit button:disabled{opacity:.5;cursor:not-allowed}
 
 /* CHARTS */
 .cr{display:grid;grid-template-columns:1fr 1.8fr;gap:20px;margin-bottom:24px}
@@ -511,6 +522,11 @@ async function loadFromSheets() {
       shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
       shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
     ]);
+    if(fondos.length<2 || cuentas.length<2 || cdp.length<2){
+      toast('Inicializando datos…', false);
+      await populateSheet();
+      return loadFromSheets();
+    }
     D = {
       tipo_cambio: parseFloat(cfg[1]?.[0])||160075.95,
       fondos:   rowsToObjs(fondos),
@@ -606,6 +622,17 @@ document.getElementById('btnOut').onclick = ()=>{
 
 async function syncSheets() { await loadFromSheets(); }
 
+async function updateTC(inputId){
+  const v = parseFloat(document.getElementById(inputId).value);
+  if(!v || v<=0){ toast('Tipo de cambio inválido', true); return; }
+  D.tipo_cambio = v;
+  try{
+    await shSet('CONFIG!A1', [['tipo_cambio','updated'],[v, new Date().toISOString()]]);
+    toast('✅ Tipo de cambio actualizado');
+    renderAll();
+  }catch(e){ toast('❌ Error: '+e.message, true); }
+}
+
 // Restore session
 const saved = sessionStorage.getItem(SS_USER);
 if(saved) { try { showApp(JSON.parse(saved)); } catch{sessionStorage.removeItem(SS_USER);} }
@@ -625,9 +652,14 @@ function renderDash(){
   const tDP = D.cdp.reduce((s,c)=>s+c.saldo,0);
   const tBi = D.bienes.reduce((s,b)=>s+b.valor,0);
   const tot = tFU+tFC/tc()+tDP/tc()+tBi;
+  const tFUSD = tFU + tFC/tc();
   document.getElementById('kpiGrid').innerHTML=`
     <div class="kc"><div class="kl">💵 Fondos USD</div><div class="kv">${fU(tFU)}</div><div class="ks">Superfondo + BN Internacional</div></div>
     <div class="kc"><div class="kl">🇨🇷 Fondos CRC</div><div class="kv">${fC(tFC)}</div><div class="ks">${fU(tFC/tc())} equiv.</div></div>
+    <div class="kc kconsol"><div class="kl">📊 Fondos Consolidado</div><div class="kv">${fU(tFUSD)}</div>
+      <div class="ks">USD + CRC en dólares</div>
+      <div class="tc-edit">T.C. ₡<input type="number" step="0.01" id="tcDash" value="${D.tipo_cambio}"/>
+        <button onclick="updateTC('tcDash')">Actualizar</button></div></div>
     <div class="kc"><div class="kl">🏦 CDPs</div><div class="kv">${fC(tDP)}</div><div class="ks">${D.cdp.length} certificados</div></div>
     <div class="kc"><div class="kl">🏠 Bienes</div><div class="kv">${fU(tBi)}</div><div class="ks">${D.bienes.length} activos</div></div>
     <div class="kc ktotal"><div class="kl">🌐 Patrimonio Total</div><div class="kv">${fU(tot)}</div><div class="ks">Todos los activos en USD</div></div>`;
@@ -683,7 +715,10 @@ function renderFondos(){
   document.getElementById('fondosC').innerHTML=`
     <div class="kg"><div class="kc"><div class="kl">💵 Total USD</div><div class="kv">${fU(tU)}</div></div>
       <div class="kc"><div class="kl">🇨🇷 Total CRC</div><div class="kv">${fC(tC)}</div><div class="ks">${fU(tC/tc())} equiv.</div></div>
-      <div class="kc"><div class="kl">🌐 Total (USD)</div><div class="kv">${fU(tU+tC/tc())}</div></div></div>
+      <div class="kc kconsol"><div class="kl">📊 Consolidado USD</div><div class="kv">${fU(tU+tC/tc())}</div>
+        <div class="ks">USD + CRC en dólares</div>
+        <div class="tc-edit">T.C. ₡<input type="number" step="0.01" id="tcFondos" value="${D.tipo_cambio}"/>
+          <button onclick="updateTC('tcFondos')">Actualizar</button></div></div></div>
     <div class="tc"><div class="tw"><table>
       <thead><tr><th>Fondo</th><th>Titular</th><th>Moneda</th><th>Saldo</th><th>Equiv. USD</th><th>Tipo</th><th>Vence</th></tr></thead>
       <tbody>${D.fondos.map(f=>`<tr>
