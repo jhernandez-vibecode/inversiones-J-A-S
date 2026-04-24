@@ -85,14 +85,16 @@ header{background:var(--navy);padding:0 28px;height:64px;display:flex;
 .ktotal .kl{color:#94a3b8}.ktotal .kv{color:#fff;font-size:28px}.ktotal .ks{color:#94a3b8}
 .kconsol{background:linear-gradient(135deg,#0ea5e9,#0369a1);border-color:transparent}
 .kconsol .kl{color:#e0f2fe}.kconsol .kv{color:#fff;font-size:28px}.kconsol .ks{color:#e0f2fe}
-.tc-edit{display:flex;align-items:center;gap:6px;margin-top:8px;background:rgba(255,255,255,.15);
-  border-radius:8px;padding:4px 8px;font-size:12px;color:#fff}
-.tc-edit input{background:transparent;border:0;color:#fff;font-weight:700;font-size:12px;
-  font-family:inherit;width:80px;outline:none;text-align:right}
+.tc-edit{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#fff;flex-wrap:wrap}
+.tc-edit label{font-weight:600}
+.tc-edit input{background:#fff;border:2px solid #fff;color:#0369a1;font-weight:700;font-size:14px;
+  font-family:inherit;width:110px;outline:none;text-align:right;padding:6px 10px;border-radius:8px;
+  cursor:text;pointer-events:auto}
+.tc-edit input:focus{border-color:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.3)}
 .tc-edit input::-webkit-outer-spin-button,.tc-edit input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.tc-edit button{background:#fff;color:#0369a1;border:0;border-radius:6px;padding:2px 10px;
-  font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
-.tc-edit button:hover{background:#f0f9ff}
+.tc-edit button{background:#fbbf24;color:#78350f;border:0;border-radius:8px;padding:6px 14px;
+  font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.tc-edit button:hover{background:#f59e0b}
 .tc-edit button:disabled{opacity:.5;cursor:not-allowed}
 
 /* CHARTS */
@@ -228,6 +230,7 @@ tr:hover td{background:#fafbff}
     <div class="hr">
       <button class="btn-hdr btn-hdr-green" onclick="exportExcel()">⬇️ Excel</button>
       <button class="btn-hdr" onclick="syncSheets()">🔄 Sync</button>
+      <button class="btn-hdr" onclick="reseedDefaults()" title="Borra el sheet y repuebla con los datos del Excel original">♻️ Restaurar Excel</button>
       <div class="upill">
         <img class="uavatar" id="uavatar" src="" alt="">
         <span class="uname" id="uname"></span>
@@ -251,8 +254,8 @@ tr:hover td{background:#fafbff}
         <div class="sd" id="dashDesc">Cargando datos…</div>
       </div><span class="tc-chip" id="tcChip"></span></div>
       <div id="emptyBanner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:14px 18px;border-radius:12px;margin-bottom:16px">
-        <div><strong>⚠️ El spreadsheet está vacío.</strong> ¿Cargar los datos por defecto del Excel original?</div>
-        <button class="btn btn-p" onclick="reseedDefaults()">Cargar datos por defecto</button>
+        <div id="emptyBannerMsg"><strong>⚠️ Faltan datos.</strong> ¿Cargar los datos del Excel?</div>
+        <button class="btn btn-p" onclick="reseedDefaults()">Cargar datos del Excel</button>
       </div>
       <div class="kg" id="kpiGrid"></div>
       <div class="cr">
@@ -526,9 +529,19 @@ async function loadFromSheets() {
       shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
       shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
     ]);
-    const empty = fondos.length<2 && cuentas.length<2 && cdp.length<2 && polizas.length<2 && bienes.length<2;
+    const missing = [];
+    if(fondos.length<2)   missing.push('Fondos');
+    if(cdp.length<2)      missing.push('CDPs');
+    if(polizas.length<2)  missing.push('Pólizas');
+    if(bienes.length<2)   missing.push('Bienes');
+    if(cuentas.length<2)  missing.push('Cuentas');
+    if(hist.length<2)     missing.push('Historial');
     const eb = document.getElementById('emptyBanner');
-    if(eb) eb.style.display = empty ? 'flex' : 'none';
+    if(eb){
+      eb.style.display = missing.length ? 'flex' : 'none';
+      if(missing.length) document.getElementById('emptyBannerMsg').textContent =
+        '⚠️ Faltan datos en: '+missing.join(', ')+'. ¿Cargar los datos del Excel?';
+    }
     D = {
       tipo_cambio: parseFloat(cfg[1]?.[0])||510,
       fondos:   rowsToObjs(fondos),
@@ -673,8 +686,8 @@ function renderDash(){
     <div class="kc"><div class="kl">🇨🇷 Fondos CRC</div><div class="kv">${fC(tFC)}</div><div class="ks">${fU(tFC/tc())} equiv.</div></div>
     <div class="kc kconsol"><div class="kl">📊 Fondos Consolidado</div><div class="kv">${fU(tFUSD)}</div>
       <div class="ks">USD + CRC en dólares</div>
-      <div class="tc-edit">T.C. ₡<input type="number" step="0.01" id="tcDash" value="${D.tipo_cambio}"/>
-        <button onclick="updateTC('tcDash')">Actualizar</button></div></div>
+      <div class="tc-edit"><label>T.C. ₡</label><input type="number" step="0.01" id="tcDash" value="${D.tipo_cambio}" onkeydown="if(event.key==='Enter')updateTC('tcDash')"/>
+        <button type="button" onclick="updateTC('tcDash')">Actualizar</button></div></div>
     <div class="kc"><div class="kl">🏦 CDPs</div><div class="kv">${fC(tDP)}</div><div class="ks">${D.cdp.length} certificados</div></div>
     <div class="kc"><div class="kl">🏠 Bienes</div><div class="kv">${fU(tBi)}</div><div class="ks">${D.bienes.length} activos</div></div>
     <div class="kc ktotal"><div class="kl">🌐 Patrimonio Total</div><div class="kv">${fU(tot)}</div><div class="ks">Todos los activos en USD</div></div>`;
@@ -732,8 +745,8 @@ function renderFondos(){
       <div class="kc"><div class="kl">🇨🇷 Total CRC</div><div class="kv">${fC(tC)}</div><div class="ks">${fU(tC/tc())} equiv.</div></div>
       <div class="kc kconsol"><div class="kl">📊 Consolidado USD</div><div class="kv">${fU(tU+tC/tc())}</div>
         <div class="ks">USD + CRC en dólares</div>
-        <div class="tc-edit">T.C. ₡<input type="number" step="0.01" id="tcFondos" value="${D.tipo_cambio}"/>
-          <button onclick="updateTC('tcFondos')">Actualizar</button></div></div></div>
+        <div class="tc-edit"><label>T.C. ₡</label><input type="number" step="0.01" id="tcFondos" value="${D.tipo_cambio}" onkeydown="if(event.key==='Enter')updateTC('tcFondos')"/>
+          <button type="button" onclick="updateTC('tcFondos')">Actualizar</button></div></div></div>
     <div class="tc"><div class="tw"><table>
       <thead><tr><th>Fondo</th><th>Titular</th><th>Moneda</th><th>Saldo</th><th>Equiv. USD</th><th>Tipo</th><th>Vence</th></tr></thead>
       <tbody>${D.fondos.map(f=>`<tr>
