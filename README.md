@@ -23,7 +23,7 @@ App web personal para control del portafolio de inversiones familiar.
 ## Deploy
 
 ### Netlify
-1. Subir `control-inversiones.html` (drag & drop en app.netlify.com/drop)
+1. Conectar el repo o subir `index.html` (drag & drop en app.netlify.com/drop)
 2. En **Google Cloud Console** → OAuth Client `446215450096-...`:
    - Authorized JavaScript origins: agregar `https://TU-APP.netlify.app`
 
