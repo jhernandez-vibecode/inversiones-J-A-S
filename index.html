@@ -522,23 +522,35 @@ async function ensureTabsExist(){
   if(!res.ok) throw new Error('No se pudieron crear tabs: '+missing.join(','));
 }
 
+function defaultPayload(){
+  return {
+    CONFIG:    [['tipo_cambio','updated'],[DEFAULT.tipo_cambio, new Date().toISOString()]],
+    FONDOS:    [['id','nombre','titular','saldo','moneda','tipo','vence'],...DEFAULT.fondos],
+    CDP:       [['id','nombre','titular','saldo','vence'],...DEFAULT.cdp],
+    POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
+    BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
+    CUENTAS:   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas],
+    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],...DEFAULT.historial]
+  };
+}
+
+async function batchWrite(sections){
+  const p = defaultPayload();
+  const data = sections.map(s=>({range:s+'!A1', values:p[s]}));
+  console.log('[batchWrite] escribiendo', sections, 'en sheet', SHEET_ID);
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`,
+    {method:'POST',headers:{Authorization:'Bearer '+ACCESS_TOKEN,'Content-Type':'application/json'},
+     body:JSON.stringify({valueInputOption:'RAW', data})}
+  );
+  const txt = await r.text();
+  if(!r.ok){ console.error('[batchWrite] FAIL', r.status, txt); throw new Error('Sheets API '+r.status+': '+txt.slice(0,200)); }
+  console.log('[batchWrite] OK', txt.slice(0,200));
+}
+
 async function populateSheet() {
   await ensureTabsExist();
-  const tasks = [
-    ['CONFIG',    [['tipo_cambio','updated'],[DEFAULT.tipo_cambio, new Date().toISOString()]]],
-    ['FONDOS',    [['id','nombre','titular','saldo','moneda','tipo','vence'],...DEFAULT.fondos]],
-    ['CDP',       [['id','nombre','titular','saldo','vence'],...DEFAULT.cdp]],
-    ['POLIZAS',   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas]],
-    ['BIENES',    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes]],
-    ['CUENTAS',   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas]],
-    ['HISTORIAL', [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],...DEFAULT.historial]]
-  ];
-  const failed = [];
-  for(const [sh, vals] of tasks){
-    try { await shSet(sh+'!A1', vals); }
-    catch(e){ failed.push(sh+': '+e.message); console.error('populate '+sh, e); }
-  }
-  if(failed.length) throw new Error('Fallaron: '+failed.join(' | '));
+  await batchWrite(['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL']);
 }
 
 // ─── LOAD FROM SHEETS ────────────────────────────────────────────
@@ -550,15 +562,7 @@ function rowsToObjs(rows) {
 
 async function autofillMissing(sections){
   await ensureTabsExist();
-  const map = {
-    FONDOS:    [['id','nombre','titular','saldo','moneda','tipo','vence'],...DEFAULT.fondos],
-    CDP:       [['id','nombre','titular','saldo','vence'],...DEFAULT.cdp],
-    POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
-    BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
-    CUENTAS:   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas],
-    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],...DEFAULT.historial]
-  };
-  for(const s of sections){ try { await shSet(s+'!A1', map[s]); } catch(e){ console.error('autofill '+s, e); } }
+  await batchWrite(sections);
 }
 
 async function loadFromSheets() {
@@ -577,7 +581,15 @@ async function loadFromSheets() {
     if(hist.length<2)     miss.push('HISTORIAL');
     if(miss.length){
       toast('Llenando secciones vacías: '+miss.join(', ')+'…', false);
-      await autofillMissing(miss);
+      try {
+        await autofillMissing(miss);
+        toast('✅ Rellenadas: '+miss.join(', '));
+      } catch(e){
+        console.error('[autofill] FAIL', e);
+        toast('❌ Autofill: '+e.message, true);
+        alert('No se pudo rellenar el spreadsheet.\n\n'+e.message+'\n\nAbre la consola (F12 → Consola) y envía el mensaje [batchWrite] FAIL.');
+        throw e;
+      }
       [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
         shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
         shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
