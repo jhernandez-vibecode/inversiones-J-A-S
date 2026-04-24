@@ -250,6 +250,10 @@ tr:hover td{background:#fafbff}
         <div class="st">Resumen del Portafolio</div>
         <div class="sd" id="dashDesc">Cargando datos…</div>
       </div><span class="tc-chip" id="tcChip"></span></div>
+      <div id="emptyBanner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:14px 18px;border-radius:12px;margin-bottom:16px">
+        <div><strong>⚠️ El spreadsheet está vacío.</strong> ¿Cargar los datos por defecto del Excel original?</div>
+        <button class="btn btn-p" onclick="reseedDefaults()">Cargar datos por defecto</button>
+      </div>
       <div class="kg" id="kpiGrid"></div>
       <div class="cr">
         <div class="cc"><div class="ct">🍩 Distribución</div><div class="cw"><canvas id="cDonut"></canvas></div></div>
@@ -378,7 +382,7 @@ const SS_USER   = 'inv_user_v2';
 
 // ─── DEFAULT DATA ────────────────────────────────────────────────
 const DEFAULT = {
-  tipo_cambio: 160075.95,
+  tipo_cambio: 510,
   fondos:[
     ['f1','Superfondo Dólares Plus','Juan Carlos Hernández',76397.33,'USD','Mensual','Corto Plazo'],
     ['f2','Ahorro Alquiler U Nunciatura','Alba María Varsi',11729,'USD','Mensual','2025-09-16'],
@@ -522,13 +526,10 @@ async function loadFromSheets() {
       shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
       shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
     ]);
-    if(fondos.length<2 || cuentas.length<2 || cdp.length<2){
-      toast('Inicializando datos…', false);
-      await populateSheet();
-      return loadFromSheets();
-    }
+    const empty = fondos.length<2 && cuentas.length<2 && cdp.length<2 && polizas.length<2 && bienes.length<2;
+    document.getElementById('emptyBanner').style.display = empty ? 'flex' : 'none';
     D = {
-      tipo_cambio: parseFloat(cfg[1]?.[0])||160075.95,
+      tipo_cambio: parseFloat(cfg[1]?.[0])||510,
       fondos:   rowsToObjs(fondos),
       cdp:      rowsToObjs(cdp),
       polizas:  rowsToObjs(polizas),
@@ -621,6 +622,17 @@ document.getElementById('btnOut').onclick = ()=>{
 };
 
 async function syncSheets() { await loadFromSheets(); }
+
+async function reseedDefaults(){
+  if(!confirm('¿Reemplazar TODO el spreadsheet con los datos por defecto del Excel original?\n\nEsto borra cualquier cambio que hayas hecho.')) return;
+  toast('Repoblando datos…', false);
+  try{
+    for(const sh of ['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL']) await shClear(sh+'!A:Z');
+    await populateSheet();
+    await loadFromSheets();
+    toast('✅ Datos por defecto cargados');
+  }catch(e){ toast('❌ Error: '+e.message, true); }
+}
 
 async function updateTC(inputId){
   const v = parseFloat(document.getElementById(inputId).value);
@@ -865,7 +877,7 @@ function buildFondosForm(){
 async function saveFondos(){
   D.fondos.forEach((f,i)=>{f.saldo=parseFloat(document.getElementById('fs_'+i).value)||0;
     f.vence=document.getElementById('fv_'+i).value;});
-  D.tipo_cambio=parseFloat(document.getElementById('ftc').value)||160075.95;
+  D.tipo_cambio=parseFloat(document.getElementById('ftc').value)||510;
   await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
     D.fondos.map(f=>[f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence]));
   renderAll(); closeMod('fondos');
