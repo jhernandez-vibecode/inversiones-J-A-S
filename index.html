@@ -565,12 +565,17 @@ async function autofillMissing(sections){
   await batchWrite(sections);
 }
 
+async function shGetSafe(range){
+  try { const v = await shGet(range); console.log('[shGet]', range, '→', v.length, 'filas'); return v; }
+  catch(e){ console.warn('[shGet] FAIL', range, e.message); return []; }
+}
+
 async function loadFromSheets() {
   toast('Cargando datos…', false);
   try {
     let [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
-      shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
-      shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
+      shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:E'),
+      shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J')
     ]);
     const miss = [];
     if(fondos.length<2)   miss.push('FONDOS');
@@ -591,8 +596,8 @@ async function loadFromSheets() {
         throw e;
       }
       [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
-        shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
-        shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
+        shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:E'),
+        shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J')
       ]);
     }
     const eb = document.getElementById('emptyBanner');
@@ -716,9 +721,7 @@ async function updateTC(inputId){
   }catch(e){ toast('❌ Error: '+e.message, true); }
 }
 
-// Restore session
-const saved = sessionStorage.getItem(SS_USER);
-if(saved) { try { showApp(JSON.parse(saved)); } catch{sessionStorage.removeItem(SS_USER);} }
+// Init auth — NUNCA mostrar #app antes de que handleToken valide el token
 window.addEventListener('load', initGSI);
 
 // ─── RENDER ──────────────────────────────────────────────────────
