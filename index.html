@@ -548,26 +548,43 @@ function rowsToObjs(rows) {
   return rows.slice(1).map(r=>Object.fromEntries(keys.map((k,i)=>[k,r[i]??''])));
 }
 
+async function autofillMissing(sections){
+  await ensureTabsExist();
+  const map = {
+    FONDOS:    [['id','nombre','titular','saldo','moneda','tipo','vence'],...DEFAULT.fondos],
+    CDP:       [['id','nombre','titular','saldo','vence'],...DEFAULT.cdp],
+    POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
+    BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
+    CUENTAS:   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas],
+    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],...DEFAULT.historial]
+  };
+  for(const s of sections){ try { await shSet(s+'!A1', map[s]); } catch(e){ console.error('autofill '+s, e); } }
+}
+
 async function loadFromSheets() {
   toast('Cargando datos…', false);
   try {
-    const [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
+    let [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
       shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
       shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
     ]);
-    const missing = [];
-    if(fondos.length<2)   missing.push('Fondos');
-    if(cdp.length<2)      missing.push('CDPs');
-    if(polizas.length<2)  missing.push('Pólizas');
-    if(bienes.length<2)   missing.push('Bienes');
-    if(cuentas.length<2)  missing.push('Cuentas');
-    if(hist.length<2)     missing.push('Historial');
-    const eb = document.getElementById('emptyBanner');
-    if(eb){
-      eb.style.display = missing.length ? 'flex' : 'none';
-      if(missing.length) document.getElementById('emptyBannerMsg').textContent =
-        '⚠️ Faltan datos en: '+missing.join(', ')+'. ¿Cargar los datos del Excel?';
+    const miss = [];
+    if(fondos.length<2)   miss.push('FONDOS');
+    if(cdp.length<2)      miss.push('CDP');
+    if(polizas.length<2)  miss.push('POLIZAS');
+    if(bienes.length<2)   miss.push('BIENES');
+    if(cuentas.length<2)  miss.push('CUENTAS');
+    if(hist.length<2)     miss.push('HISTORIAL');
+    if(miss.length){
+      toast('Llenando secciones vacías: '+miss.join(', ')+'…', false);
+      await autofillMissing(miss);
+      [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
+        shGet('CONFIG!A1:B2'), shGet('FONDOS!A:G'), shGet('CDP!A:E'),
+        shGet('POLIZAS!A:G'), shGet('BIENES!A:F'), shGet('CUENTAS!A:E'), shGet('HISTORIAL!A:J')
+      ]);
     }
+    const eb = document.getElementById('emptyBanner');
+    if(eb) eb.style.display = 'none';
     D = {
       tipo_cambio: parseFloat(cfg[1]?.[0])||510,
       fondos:   rowsToObjs(fondos),
