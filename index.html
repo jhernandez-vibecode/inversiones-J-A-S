@@ -829,8 +829,7 @@ function renderHistorial(){
       label:f,borderColor:cols[f],backgroundColor:cols[f]+'20',tension:.4,fill:false,
       pointRadius:5,spanGaps:true,data:meses.map(m=>{
         const r=hist.find(h=>h.mes===m&&h.fondo===f);
-        return r?(h.moneda==='CRC'?r.saldo_final/tc():r.saldo_final):
-               (r?r.saldo_final:null)})
+        return r?(r.moneda==='CRC'?r.saldo_final/tc():r.saldo_final):null})
     }))},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:12},padding:12}},
