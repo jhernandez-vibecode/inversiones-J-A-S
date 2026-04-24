@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root{
@@ -112,6 +113,21 @@ header{background:var(--navy);padding:0 28px;height:64px;display:flex;
 .b-amber{background:#fef3c7;color:#92400e}
 .b-red{background:#fee2e2;color:#991b1b}
 .b-gray{background:#f1f5f9;color:#475569}
+
+/* PDF DROP */
+.pdf-drop{border:2px dashed #cbd5e1;border-radius:14px;padding:32px 20px;text-align:center;
+  background:#f8fafc;transition:.2s;cursor:pointer}
+.pdf-drop.drag{border-color:var(--cyan);background:#ecfeff}
+.pdf-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+  padding:10px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;
+  background:#fff;font-size:13px}
+.pdf-row.err{background:#fef2f2;border-color:#fca5a5}
+.pdf-row.dup{background:#fef3c7;border-color:#fcd34d}
+.pdf-row-ok{color:var(--emerald);font-size:18px}
+.pdf-row-err{color:var(--red);font-size:18px}
+.pdf-row-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.pdf-row select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;
+  font-family:var(--font);font-size:12px}
 
 /* CDP APPLIED */
 .row-applied{background:#f8fafc;color:#94a3b8}
@@ -283,7 +299,10 @@ tr:hover td{background:#fafbff}
     <div class="section" id="tab-historial">
       <div class="sh"><div><div class="st">Historial Mensual</div>
         <div class="sd">Saldo inicial · Aportes · Retiros · Tasa · Intereses · Saldo final</div></div>
-        <button class="btn btn-outline" onclick="openMod('mov')">➕ Registrar mes</button></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="openPdfImport()">📄 Importar PDF</button>
+          <button class="btn btn-outline" onclick="openMod('mov')">➕ Registrar mes</button>
+        </div></div>
       <div class="yr-row">
         <button class="yr active" data-year="2026">2026</button>
         <button class="yr" data-year="2025">2025</button>
@@ -379,6 +398,28 @@ tr:hover td{background:#fafbff}
     <div class="mf">
       <button class="btn-secondary" onclick="closeMod('mov')">Cancelar</button>
       <button class="btn-primary" onclick="saveMov()">Registrar en Sheets</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR PDF -->
+<div class="ov" id="ovPdf">
+  <div class="m" style="max-width:920px">
+    <div class="mt">📄 Importar estados de cuenta PDF</div>
+    <div id="pdfDrop" class="pdf-drop">
+      <div style="font-size:44px;margin-bottom:8px">📑</div>
+      <div style="font-weight:600;margin-bottom:4px">Arrastrá uno o varios PDFs aquí</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">o</div>
+      <label class="btn btn-outline" style="cursor:pointer;display:inline-block">
+        Seleccionar archivos
+        <input type="file" id="pdfInput" accept="application/pdf" multiple style="display:none">
+      </label>
+      <div style="font-size:11px;color:var(--muted);margin-top:12px">Formatos soportados: BN CreciFondo, Superfondo Dólares Plus, BN Internacional Suma, y otros fondos BN</div>
+    </div>
+    <div id="pdfResults" style="margin-top:18px"></div>
+    <div class="mf">
+      <button class="btn-secondary" onclick="closeMod('pdf')">Cerrar</button>
+      <button class="btn-primary" id="pdfImportBtn" onclick="importPdfRows()" style="display:none">Importar registros</button>
     </div>
   </div>
 </div>
@@ -953,7 +994,7 @@ function renderCuentas(){
 }
 
 // ─── MODALS ──────────────────────────────────────────────────────
-const MOD_MAP = {fondos:'ovFondos',cdp:'ovCdp',bienes:'ovBienes',mov:'ovMov'};
+const MOD_MAP = {fondos:'ovFondos',cdp:'ovCdp',bienes:'ovBienes',mov:'ovMov',pdf:'ovPdf'};
 function openMod(k){
   if(k==='fondos') buildFondosForm();
   if(k==='cdp') buildCdpForm();
@@ -1054,6 +1095,145 @@ async function saveMov(){
     ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],
     D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final]));
   renderAll(); closeMod('mov');
+}
+
+// ─── IMPORTAR PDF ────────────────────────────────────────────────
+const MESES_ES = ['','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+let pdfStaged = [];
+
+function openPdfImport(){
+  pdfStaged = [];
+  document.getElementById('pdfResults').innerHTML='';
+  document.getElementById('pdfImportBtn').style.display='none';
+  document.getElementById('ovPdf').classList.add('open');
+  setTimeout(initPdfDrop, 0);
+}
+
+function initPdfDrop(){
+  const zone = document.getElementById('pdfDrop');
+  const input = document.getElementById('pdfInput');
+  if(zone.dataset.inited) return;
+  zone.dataset.inited = '1';
+  zone.addEventListener('dragover', e=>{e.preventDefault(); zone.classList.add('drag');});
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop', e=>{
+    e.preventDefault(); zone.classList.remove('drag');
+    handlePdfFiles([...e.dataTransfer.files].filter(f=>f.type==='application/pdf'));
+  });
+  input.addEventListener('change', e=>handlePdfFiles([...e.target.files]));
+}
+
+async function handlePdfFiles(files){
+  if(!files.length) return;
+  if(typeof pdfjsLib==='undefined'){ toast('❌ PDF.js no cargó, recargá la página', true); return; }
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  toast('Procesando '+files.length+' PDF(s)…', false);
+  for(const f of files){
+    try{
+      const text = await extractPdfText(f);
+      const data = parseFondoPDF(text);
+      if(!data) { pdfStaged.push({file:f.name, error:'No se reconoció el formato del PDF'}); continue; }
+      const dup = D.historial.find(h=>+h.anio===+data.anio&&h.mes===data.mes&&h.fondo===data.fondo);
+      pdfStaged.push({file:f.name, data, dup:!!dup, action: dup?'skip':'add'});
+    }catch(e){
+      console.error('[pdf]', f.name, e);
+      pdfStaged.push({file:f.name, error:e.message||'Error al leer PDF'});
+    }
+  }
+  renderPdfResults();
+}
+
+async function extractPdfText(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  let text='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it=>it.str).join('\n')+'\n';
+  }
+  return text;
+}
+
+function parseFondoPDF(text){
+  const num = s => parseFloat((s||'').replace(/[^\d\.\-]/g,''))||0;
+  const periodo = text.match(/Periodo\s+Comprendido\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+  if(!periodo) return null;
+  const mes = MESES_ES[parseInt(periodo[2],10)];
+  const anio = parseInt(periodo[3],10);
+
+  const nombreM = text.match(/BN\s+([A-Za-zÁÉÍÓÚáéíóúñÑ][^\n]*?)(?:\s*-\s*no\s+diversificado|\n)/i);
+  let nombreRaw = (nombreM?.[1]||'').trim().replace(/\s+/g,' ');
+  let fondo = nombreRaw.toUpperCase();
+  if(/crecifondo/i.test(nombreRaw)) fondo='CRECIFONDO';
+  else if(/superfondo.*d[oó]lares|d[oó]lares\s*plus/i.test(nombreRaw)) fondo='SUPERFONDO DOLARES PLUS';
+  else if(/internacional\s*suma/i.test(nombreRaw)) fondo='BN INTERNACIONAL SUMA';
+
+  const monM = text.match(/Moneda:\s*([^\n\(]+)/i);
+  let moneda='CRC';
+  if(/d[oó]lar/i.test(monM?.[1]||'')) moneda='USD';
+  else if(/col[oó]n/i.test(monM?.[1]||'')) moneda='CRC';
+  else if(/\$/.test(text.match(/Saldo\s+Inicial:[^\n]*/i)?.[0]||'')) moneda='USD';
+
+  const saldo_inicial = num(text.match(/Saldo\s+Inicial:\s*[¢\$]?\s*(-?[\d,\.]+)/i)?.[1]);
+  const aportes = num(text.match(/Inversiones\(\+\):\s*[¢\$]?\s*(-?[\d,\.]+)/i)?.[1]);
+  const retiros = num(text.match(/Retiros\(-\):\s*[¢\$]?\s*(-?[\d,\.]+)/i)?.[1]);
+  const saldo_final = num(text.match(/Saldo\s+Final:\s*[¢\$]?\s*(-?[\d,\.]+)/i)?.[1]);
+  const interes = num(text.match(/Beneficios:\s*[¢\$]?\s*(-?[\d,\.]+)/i)?.[1]);
+  const tasa = parseFloat(text.match(/[ÚU]ltimos\s+12\s+meses:\s*(-?[\d\.]+)\s*%/i)?.[1])||0;
+
+  return {anio, mes, fondo, moneda, saldo_inicial, aportes, retiros, tasa, interes, saldo_final, nombreRaw};
+}
+
+function renderPdfResults(){
+  const c = document.getElementById('pdfResults');
+  if(!pdfStaged.length){ c.innerHTML=''; document.getElementById('pdfImportBtn').style.display='none'; return; }
+  const actionables = pdfStaged.filter(r=>r.data && r.action!=='skip').length;
+  c.innerHTML = pdfStaged.map((r,i)=>{
+    if(r.error){
+      return `<div class="pdf-row err"><div class="pdf-row-err">✗</div>
+        <div><div style="font-weight:600">${r.file}</div><div class="pdf-row-meta">${r.error}</div></div>
+        <div></div></div>`;
+    }
+    const d = r.data;
+    const amt = d.moneda==='USD'?fU:fC;
+    return `<div class="pdf-row ${r.dup?'dup':''}">
+      <div class="pdf-row-ok">${r.dup?'⚠️':'✓'}</div>
+      <div>
+        <div style="font-weight:600">${d.fondo} · ${d.mes} ${d.anio} · <span class="b ${d.moneda==='USD'?'b-blue':'b-purple'}" style="font-size:10px">${d.moneda}</span></div>
+        <div class="pdf-row-meta">${r.file} · Inicial ${amt(d.saldo_inicial)} → Final ${amt(d.saldo_final)} · Aportes ${amt(d.aportes)} · Retiros ${amt(d.retiros)} · Interés ${amt(d.interes)} · Tasa ${d.tasa}%</div>
+        ${r.dup?'<div class="pdf-row-meta" style="color:#92400e;font-weight:600">Ya existe — elegí qué hacer:</div>':''}
+      </div>
+      <select onchange="pdfStaged[${i}].action=this.value">
+        ${r.dup?`<option value="skip" ${r.action==='skip'?'selected':''}>Saltar</option>
+                 <option value="replace" ${r.action==='replace'?'selected':''}>Reemplazar</option>`
+               :`<option value="add" selected>Agregar</option>
+                 <option value="skip">Saltar</option>`}
+      </select>
+    </div>`;
+  }).join('');
+  document.getElementById('pdfImportBtn').style.display = actionables?'inline-block':'none';
+  document.getElementById('pdfImportBtn').textContent = `Importar ${actionables} registro${actionables!==1?'s':''}`;
+}
+
+async function importPdfRows(){
+  const toApply = pdfStaged.filter(r=>r.data && r.action!=='skip');
+  if(!toApply.length){ toast('Nada que importar', true); return; }
+  for(const r of toApply){
+    const d = r.data;
+    const entry = {anio:d.anio, mes:d.mes, fondo:d.fondo, moneda:d.moneda,
+      saldo_inicial:d.saldo_inicial, aportes:d.aportes, retiros:d.retiros,
+      tasa:d.tasa, interes:d.interes, saldo_final:d.saldo_final};
+    const idx = D.historial.findIndex(h=>+h.anio===+d.anio&&h.mes===d.mes&&h.fondo===d.fondo);
+    if(idx>=0) D.historial[idx] = entry; else D.historial.push(entry);
+  }
+  try{
+    await saveSection('HISTORIAL',
+      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],
+      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final]));
+    toast('✅ '+toApply.length+' registro(s) importado(s)');
+    renderAll(); closeMod('pdf');
+  }catch(e){ toast('❌ Error al guardar: '+e.message, true); }
 }
 
 // ─── EXPORT EXCEL ────────────────────────────────────────────────
