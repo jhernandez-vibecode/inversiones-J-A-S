@@ -116,6 +116,18 @@ header{background:var(--navy);padding:0 28px;height:64px;display:flex;
 .b-red{background:#fee2e2;color:#991b1b}
 .b-gray{background:#f1f5f9;color:#475569}
 
+/* DELETE BTN EN MODALES */
+.btn-del{background:transparent;border:1px solid #fecaca;color:#dc2626;
+  padding:5px 10px;border-radius:6px;font-size:14px;cursor:pointer;
+  font-family:var(--font);transition:.15s;line-height:1}
+.btn-del:hover{background:#fef2f2;border-color:#dc2626}
+
+/* BTN-PRIMARY VARIANTS */
+.btn-add{background:var(--emerald);color:#fff;border:0;border-radius:8px;
+  padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:var(--font);transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-add:hover{background:#059669}
+
 /* PDF DROP */
 .pdf-drop{border:2px dashed #cbd5e1;border-radius:14px;padding:32px 20px;text-align:center;
   background:#f8fafc;transition:.2s;cursor:pointer}
@@ -295,7 +307,10 @@ tr:hover td{background:#fafbff}
     <div class="section" id="tab-fondos">
       <div class="sh"><div><div class="st">Fondos de Inversión</div>
         <div class="sd">Saldos actuales</div></div>
-        <button class="btn btn-outline" onclick="openMod('fondos')">✏️ Actualizar saldos</button></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-add" onclick="openMod('addFondo')">➕ Agregar fondo</button>
+          <button class="btn btn-outline" onclick="openMod('fondos')">✏️ Editar</button>
+        </div></div>
       <div id="fondosC"></div>
     </div>
     <div class="section" id="tab-historial">
@@ -318,23 +333,37 @@ tr:hover td{background:#fafbff}
     <div class="section" id="tab-cdp">
       <div class="sh"><div><div class="st">Certificados de Depósito</div>
         <div class="sd">Abogado: Federico Altamura · 📞 8836-4617</div></div>
-        <button class="btn btn-outline" onclick="openMod('cdp')">✏️ Editar CDPs</button></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-add" onclick="openMod('addCdp')">➕ Agregar CDP</button>
+          <button class="btn btn-outline" onclick="openMod('cdp')">✏️ Editar</button>
+        </div></div>
       <div id="cdpC"></div>
     </div>
     <div class="section" id="tab-polizas">
       <div class="sh"><div><div class="st">Pólizas de Vida (INS)</div>
-        <div class="sd">Coberturas activas de seguro de vida y salud</div></div></div>
+        <div class="sd">Coberturas activas de seguro de vida y salud</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-add" onclick="openMod('addPoliza')">➕ Agregar póliza</button>
+          <button class="btn btn-outline" onclick="openMod('polizas')">✏️ Editar</button>
+        </div></div>
       <div id="polizasC"></div>
     </div>
     <div class="section" id="tab-bienes">
       <div class="sh"><div><div class="st">Bienes Muebles e Inmuebles</div>
         <div class="sd">Valoración estimada de activos tangibles</div></div>
-        <button class="btn btn-outline" onclick="openMod('bienes')">✏️ Actualizar valores</button></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-add" onclick="openMod('addBien')">➕ Agregar bien</button>
+          <button class="btn btn-outline" onclick="openMod('bienes')">✏️ Editar</button>
+        </div></div>
       <div id="bienesC"></div>
     </div>
     <div class="section" id="tab-cuentas">
       <div class="sh"><div><div class="st">Cuentas Bancarias</div>
-        <div class="sd">Banco Nacional — Juan Carlos y Alba María</div></div></div>
+        <div class="sd">Banco Nacional — Juan Carlos y Alba María</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-add" onclick="openMod('addCuenta')">➕ Agregar cuenta</button>
+          <button class="btn btn-outline" onclick="openMod('cuentas')">✏️ Editar</button>
+        </div></div>
       <div id="cuentasC"></div>
     </div>
   </div>
@@ -404,6 +433,111 @@ tr:hover td{background:#fafbff}
   </div>
 </div>
 
+<!-- MODAL AGREGAR FONDO -->
+<div class="ov" id="ovAddFondo">
+  <div class="m"><div class="mt">➕ Nuevo Fondo de Inversión</div>
+    <div class="fg"><label class="fl">Nombre</label><input class="fi" type="text" id="afn"></div>
+    <div class="fg"><label class="fl">Titular</label>
+      <select class="fi" id="aft">${''/*injected*/}</select></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Saldo</label><input class="fi" type="number" id="afs" placeholder="0"></div>
+      <div class="fg"><label class="fl">Moneda</label>
+        <select class="fi" id="afm"><option>CRC</option><option>USD</option></select></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Tipo</label>
+        <select class="fi" id="aftipo"><option>Mensual</option><option>Anual</option></select></div>
+      <div class="fg"><label class="fl">Vence (opcional)</label><input class="fi" type="text" id="afv" placeholder="Corto Plazo o YYYY-MM-DD"></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('addFondo')">Cancelar</button>
+      <button class="btn-primary" onclick="addFondo()">Agregar</button></div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR CDP -->
+<div class="ov" id="ovAddCdp">
+  <div class="m"><div class="mt">➕ Nuevo CDP</div>
+    <div class="fg"><label class="fl">Nombre</label><input class="fi" type="text" id="acn" placeholder="MARCHAMOS / IV ADELANTO RENTA"></div>
+    <div class="fg"><label class="fl">Titular</label><select class="fi" id="act"></select></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Saldo (₡)</label><input class="fi" type="number" id="acs"></div>
+      <div class="fg"><label class="fl">Vencimiento</label><input class="fi" type="date" id="acv"></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('addCdp')">Cancelar</button>
+      <button class="btn-primary" onclick="addCdpNew()">Agregar</button></div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR PÓLIZA -->
+<div class="ov" id="ovAddPoliza">
+  <div class="m"><div class="mt">➕ Nueva Póliza</div>
+    <div class="fg"><label class="fl">Nombre</label><input class="fi" type="text" id="apn"></div>
+    <div class="fg"><label class="fl">Titular</label><select class="fi" id="apt"></select></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Monto Asegurado</label><input class="fi" type="number" id="apmonto"></div>
+      <div class="fg"><label class="fl">Moneda</label>
+        <select class="fi" id="apmoneda"><option>USD</option><option>CRC</option></select></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Ahorro (USD, opcional)</label><input class="fi" type="number" id="apa" placeholder="0"></div>
+      <div class="fg"><label class="fl">Tipo</label>
+        <select class="fi" id="aptipo"><option>ANUAL</option><option>MENSUAL</option></select></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('addPoliza')">Cancelar</button>
+      <button class="btn-primary" onclick="addPoliza()">Agregar</button></div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR BIEN -->
+<div class="ov" id="ovAddBien">
+  <div class="m"><div class="mt">➕ Nuevo Bien</div>
+    <div class="fg"><label class="fl">Nombre</label><input class="fi" type="text" id="abn" placeholder="Apt. en Nunciatura / Honda CRV"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Tipo</label>
+        <select class="fi" id="abtipo"><option>Inmueble</option><option>Vehículo</option><option>Otro</option></select></div>
+      <div class="fg"><label class="fl">Valor estimado (USD)</label><input class="fi" type="number" id="abv"></div>
+    </div>
+    <div class="fg"><label class="fl">Detalle</label><input class="fi" type="text" id="abd" placeholder="Placa, número, descripción…"></div>
+    <div class="fg"><label class="fl">Icono</label>
+      <div id="abIconPick" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div></div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('addBien')">Cancelar</button>
+      <button class="btn-primary" onclick="addBien()">Agregar</button></div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR CUENTA -->
+<div class="ov" id="ovAddCuenta">
+  <div class="m"><div class="mt">➕ Nueva Cuenta Bancaria</div>
+    <div class="fg"><label class="fl">Titular</label><select class="fi" id="aut"></select></div>
+    <div class="fg"><label class="fl">Banco</label><input class="fi" type="text" id="aub" placeholder="Banco Nacional, BAC, BCR…"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Moneda</label>
+        <select class="fi" id="aum"><option>CRC</option><option>USD</option></select></div>
+      <div class="fg"><label class="fl">Descripción</label><input class="fi" type="text" id="aud" placeholder="Cuenta 12345 - Salario"></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('addCuenta')">Cancelar</button>
+      <button class="btn-primary" onclick="addCuenta()">Agregar</button></div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PÓLIZAS -->
+<div class="ov" id="ovPolizas">
+  <div class="m"><div class="mt">✏️ Editar Pólizas</div>
+    <div id="mPolizas"></div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('polizas')">Cancelar</button>
+      <button class="btn-primary" onclick="savePolizasMod()">Guardar en Sheets</button></div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR CUENTAS -->
+<div class="ov" id="ovCuentas">
+  <div class="m"><div class="mt">✏️ Editar Cuentas</div>
+    <div id="mCuentas"></div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('cuentas')">Cancelar</button>
+      <button class="btn-primary" onclick="saveCuentasMod()">Guardar en Sheets</button></div>
+  </div>
+</div>
+
 <!-- MODAL IMPORTAR PDF -->
 <div class="ov" id="ovPdf">
   <div class="m" style="max-width:920px">
@@ -434,6 +568,14 @@ const CLIENT_ID = '446215450096-i2s3glor63qodpf3t12ogdgunedqgp27.apps.googleuser
 const ALLOWED   = ['jhernandez@segurosdelins.com','asistente@segurosdelins.com'];
 const LS_SID    = 'inv_sheet_id_v2';
 const SS_USER   = 'inv_user_v2';
+
+const TITULARES   = ['Juan Carlos Hernández','Alba María Varsi'];
+const ICONOS_BIEN = ['🏢','🏡','🏠','🏬','🚗','🚙','🛵','⛵️','✈️','💎'];
+const TIPO_FONDO  = ['Mensual','Anual'];
+const TIPO_BIEN   = ['Inmueble','Vehículo','Otro'];
+const TIPO_POLIZA = ['ANUAL','MENSUAL'];
+const MONEDAS     = ['CRC','USD'];
+const genID = (prefix)=> prefix + Date.now().toString(36);
 
 // ─── DEFAULT DATA ────────────────────────────────────────────────
 const DEFAULT = {
@@ -996,20 +1138,35 @@ function renderCuentas(){
 }
 
 // ─── MODALS ──────────────────────────────────────────────────────
-const MOD_MAP = {fondos:'ovFondos',cdp:'ovCdp',bienes:'ovBienes',mov:'ovMov',pdf:'ovPdf'};
+const MOD_MAP = {fondos:'ovFondos',cdp:'ovCdp',bienes:'ovBienes',mov:'ovMov',pdf:'ovPdf',
+  polizas:'ovPolizas',cuentas:'ovCuentas',
+  addFondo:'ovAddFondo',addCdp:'ovAddCdp',addPoliza:'ovAddPoliza',addBien:'ovAddBien',addCuenta:'ovAddCuenta'};
 function openMod(k){
   if(k==='fondos') buildFondosForm();
   if(k==='cdp') buildCdpForm();
   if(k==='bienes') buildBienesForm();
+  if(k==='polizas') buildPolizasForm();
+  if(k==='cuentas') buildCuentasForm();
+  if(k==='addFondo') prepareAddFondo();
+  if(k==='addCdp') prepareAddCdp();
+  if(k==='addPoliza') prepareAddPoliza();
+  if(k==='addBien') prepareAddBien();
+  if(k==='addCuenta') prepareAddCuenta();
   document.getElementById(MOD_MAP[k]).classList.add('open');
 }
 function closeMod(k){document.getElementById(MOD_MAP[k]).classList.remove('open');}
 document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('open');}));
 
+const titularOptions = (sel)=> TITULARES.map(t=>`<option ${sel===t?'selected':''}>${t}</option>`).join('');
+const delBtn = (fn,id) => `<button type="button" class="btn-del" onclick="${fn}('${id}')" title="Eliminar">🗑</button>`;
+
 function buildFondosForm(){
   document.getElementById('mFondos').innerHTML=
     D.fondos.map((f,i)=>`<div class="fb">
-      <div class="fb-n">${f.nombre} <span class="b ${f.moneda==='USD'?'b-blue':'b-purple'}">${f.moneda}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="fb-n" style="margin:0">${f.nombre} <span class="b ${f.moneda==='USD'?'b-blue':'b-purple'}">${f.moneda}</span></div>
+        ${delBtn('delFondo',f.id)}
+      </div>
       <div class="fr">
         <div class="fg"><label class="fl">Saldo (${f.moneda})</label>
           <input class="fi" type="number" id="fs_${i}" value="${f.saldo}" step="0.01"></div>
@@ -1020,8 +1177,11 @@ function buildFondosForm(){
       <input class="fi" type="number" id="ftc" value="${D.tipo_cambio}" step="0.01"></div>`;
 }
 async function saveFondos(){
-  D.fondos.forEach((f,i)=>{f.saldo=parseFloat(document.getElementById('fs_'+i).value)||0;
-    f.vence=document.getElementById('fv_'+i).value;});
+  D.fondos.forEach((f,i)=>{
+    const el=document.getElementById('fs_'+i); if(!el) return;
+    f.saldo=parseFloat(el.value)||0;
+    f.vence=document.getElementById('fv_'+i).value;
+  });
   D.tipo_cambio=parseFloat(document.getElementById('ftc').value)||510;
   await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
     D.fondos.map(f=>[f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence]));
@@ -1030,6 +1190,10 @@ async function saveFondos(){
 
 function buildCdpForm(){
   document.getElementById('mCdp').innerHTML=D.cdp.map((c,i)=>`<div class="fb">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="fb-n" style="margin:0">${c.nombre} ${c.estado==='aplicado'?'<span class="b b-gray">✓ Aplicado</span>':''}</div>
+      ${delBtn('delCdp',c.id)}
+    </div>
     <div class="fg"><label class="fl">Nombre</label>
       <input class="fi" type="text" id="cn_${i}" value="${c.nombre}"></div>
     <div class="fr">
@@ -1040,9 +1204,12 @@ function buildCdpForm(){
     </div></div>`).join('');
 }
 async function saveCdp(){
-  D.cdp.forEach((c,i)=>{c.nombre=document.getElementById('cn_'+i).value;
+  D.cdp.forEach((c,i)=>{
+    const el=document.getElementById('cn_'+i); if(!el) return;
+    c.nombre=el.value;
     c.saldo=parseFloat(document.getElementById('cs_'+i).value)||0;
-    c.vence=document.getElementById('cv_'+i).value;});
+    c.vence=document.getElementById('cv_'+i).value;
+  });
   await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
     D.cdp.map(c=>[c.id,c.nombre,c.titular,c.saldo,c.vence,c.estado||'vigente',c.fecha_aplicado||'']));
   renderAll(); closeMod('cdp');
@@ -1067,16 +1234,240 @@ async function markCDP(id, nuevoEstado){
 
 function buildBienesForm(){
   document.getElementById('mBienes').innerHTML=D.bienes.map((b,i)=>`<div class="fb">
-    <div class="fb-n">${b.icon} ${b.nombre}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="fb-n" style="margin:0">${b.icon} ${b.nombre}</div>
+      ${delBtn('delBien',b.id)}
+    </div>
     <div class="fg"><label class="fl">Valor Estimado (USD)</label>
       <input class="fi" type="number" id="bv_${i}" value="${b.valor}"></div>
   </div>`).join('');
 }
 async function saveBienes(){
-  D.bienes.forEach((b,i)=>{b.valor=parseFloat(document.getElementById('bv_'+i).value)||0;});
+  D.bienes.forEach((b,i)=>{
+    const el=document.getElementById('bv_'+i); if(!el) return;
+    b.valor=parseFloat(el.value)||0;
+  });
   await saveSection('BIENES',['id','nombre','tipo','valor','detalle','icon'],
     D.bienes.map(b=>[b.id,b.nombre,b.tipo,b.valor,b.detalle,b.icon]));
   renderAll(); closeMod('bienes');
+}
+
+// ─── EDITAR PÓLIZAS ──────────────────────────────────────────────
+function buildPolizasForm(){
+  document.getElementById('mPolizas').innerHTML=D.polizas.map((p,i)=>`<div class="fb">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="fb-n" style="margin:0">${p.nombre} <span class="b ${p.moneda==='USD'?'b-blue':'b-purple'}">${p.moneda}</span></div>
+      ${delBtn('delPoliza',p.id)}
+    </div>
+    <div class="fg"><label class="fl">Nombre</label>
+      <input class="fi" type="text" id="pn_${i}" value="${p.nombre}"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Monto Asegurado</label>
+        <input class="fi" type="number" id="pm_${i}" value="${p.monto}"></div>
+      <div class="fg"><label class="fl">Ahorro (USD)</label>
+        <input class="fi" type="number" id="pa_${i}" value="${p.ahorro}"></div>
+    </div></div>`).join('');
+}
+async function savePolizasMod(){
+  D.polizas.forEach((p,i)=>{
+    const el=document.getElementById('pn_'+i); if(!el) return;
+    p.nombre=el.value;
+    p.monto=parseFloat(document.getElementById('pm_'+i).value)||0;
+    p.ahorro=parseFloat(document.getElementById('pa_'+i).value)||0;
+  });
+  await saveSection('POLIZAS',['id','nombre','titular','monto','moneda','ahorro','tipo'],
+    D.polizas.map(p=>[p.id,p.nombre,p.titular,p.monto,p.moneda,p.ahorro,p.tipo]));
+  renderAll(); closeMod('polizas');
+}
+
+// ─── EDITAR CUENTAS ──────────────────────────────────────────────
+function buildCuentasForm(){
+  document.getElementById('mCuentas').innerHTML=D.cuentas.map((c,i)=>`<div class="fb">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="fb-n" style="margin:0">${c.titular} · ${c.banco} <span class="b ${c.moneda==='USD'?'b-blue':'b-purple'}">${c.moneda}</span></div>
+      ${delBtn('delCuenta',c.id)}
+    </div>
+    <div class="fg"><label class="fl">Descripción</label>
+      <input class="fi" type="text" id="ud_${i}" value="${c.desc||''}"></div>
+  </div>`).join('');
+}
+async function saveCuentasMod(){
+  D.cuentas.forEach((c,i)=>{
+    const el=document.getElementById('ud_'+i); if(!el) return;
+    c.desc=el.value;
+  });
+  await saveSection('CUENTAS',['id','titular','banco','moneda','desc'],
+    D.cuentas.map(c=>[c.id,c.titular,c.banco,c.moneda,c.desc]));
+  renderAll(); closeMod('cuentas');
+}
+
+// ─── PREPARAR MODALES "AGREGAR" ──────────────────────────────────
+function prepareAddFondo(){
+  document.getElementById('aft').innerHTML = titularOptions();
+  ['afn','afs','afv'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('afm').value='CRC';
+  document.getElementById('aftipo').value='Mensual';
+}
+function prepareAddCdp(){
+  document.getElementById('act').innerHTML = titularOptions();
+  ['acn','acs','acv'].forEach(id=>document.getElementById(id).value='');
+}
+function prepareAddPoliza(){
+  document.getElementById('apt').innerHTML = titularOptions();
+  ['apn','apmonto','apa'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('apmoneda').value='USD';
+  document.getElementById('aptipo').value='ANUAL';
+}
+function prepareAddBien(){
+  ['abn','abv','abd'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('abtipo').value='Inmueble';
+  const pick = document.getElementById('abIconPick');
+  let selected = '🏢';
+  pick.innerHTML = ICONOS_BIEN.map(ic=>`<button type="button" class="icon-pick" data-ic="${ic}" style="font-size:22px;padding:6px 10px;border:2px solid ${ic===selected?'var(--cyan)':'var(--border)'};background:#fff;border-radius:8px;cursor:pointer">${ic}</button>`).join('');
+  pick.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    selected = b.dataset.ic;
+    pick.dataset.selected = selected;
+    pick.querySelectorAll('button').forEach(x=>x.style.borderColor='var(--border)');
+    b.style.borderColor='var(--cyan)';
+  });
+  pick.dataset.selected = selected;
+}
+function prepareAddCuenta(){
+  document.getElementById('aut').innerHTML = titularOptions();
+  ['aub','aud'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('aub').value='Banco Nacional';
+  document.getElementById('aum').value='CRC';
+}
+
+// ─── AGREGAR ─────────────────────────────────────────────────────
+async function addFondo(){
+  const nombre=document.getElementById('afn').value.trim();
+  if(!nombre){toast('Falta el nombre',true);return;}
+  const f={id:genID('f'),nombre,titular:document.getElementById('aft').value,
+    saldo:parseFloat(document.getElementById('afs').value)||0,
+    moneda:document.getElementById('afm').value,
+    tipo:document.getElementById('aftipo').value,
+    vence:document.getElementById('afv').value||''};
+  D.fondos.push(f);
+  try{
+    await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
+      D.fondos.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.moneda,x.tipo,x.vence]));
+    renderAll(); closeMod('addFondo');
+  }catch(e){ D.fondos.pop(); toast('❌ '+e.message,true); }
+}
+
+async function addCdpNew(){
+  const nombre=document.getElementById('acn').value.trim();
+  if(!nombre){toast('Falta el nombre',true);return;}
+  const c={id:genID('c'),nombre,titular:document.getElementById('act').value,
+    saldo:parseFloat(document.getElementById('acs').value)||0,
+    vence:document.getElementById('acv').value||'',
+    estado:'vigente',fecha_aplicado:''};
+  D.cdp.push(c);
+  try{
+    await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
+      D.cdp.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.vence,x.estado||'vigente',x.fecha_aplicado||'']));
+    renderAll(); closeMod('addCdp');
+  }catch(e){ D.cdp.pop(); toast('❌ '+e.message,true); }
+}
+
+async function addPoliza(){
+  const nombre=document.getElementById('apn').value.trim();
+  if(!nombre){toast('Falta el nombre',true);return;}
+  const p={id:genID('p'),nombre,titular:document.getElementById('apt').value,
+    monto:parseFloat(document.getElementById('apmonto').value)||0,
+    moneda:document.getElementById('apmoneda').value,
+    ahorro:parseFloat(document.getElementById('apa').value)||0,
+    tipo:document.getElementById('aptipo').value};
+  D.polizas.push(p);
+  try{
+    await saveSection('POLIZAS',['id','nombre','titular','monto','moneda','ahorro','tipo'],
+      D.polizas.map(x=>[x.id,x.nombre,x.titular,x.monto,x.moneda,x.ahorro,x.tipo]));
+    renderAll(); closeMod('addPoliza');
+  }catch(e){ D.polizas.pop(); toast('❌ '+e.message,true); }
+}
+
+async function addBien(){
+  const nombre=document.getElementById('abn').value.trim();
+  if(!nombre){toast('Falta el nombre',true);return;}
+  const icon = document.getElementById('abIconPick').dataset.selected || '🏢';
+  const b={id:genID('b'),nombre,
+    tipo:document.getElementById('abtipo').value,
+    valor:parseFloat(document.getElementById('abv').value)||0,
+    detalle:document.getElementById('abd').value||'',
+    icon};
+  D.bienes.push(b);
+  try{
+    await saveSection('BIENES',['id','nombre','tipo','valor','detalle','icon'],
+      D.bienes.map(x=>[x.id,x.nombre,x.tipo,x.valor,x.detalle,x.icon]));
+    renderAll(); closeMod('addBien');
+  }catch(e){ D.bienes.pop(); toast('❌ '+e.message,true); }
+}
+
+async function addCuenta(){
+  const banco=document.getElementById('aub').value.trim();
+  if(!banco){toast('Falta el banco',true);return;}
+  const c={id:genID('cu'),titular:document.getElementById('aut').value,banco,
+    moneda:document.getElementById('aum').value,
+    desc:document.getElementById('aud').value||''};
+  D.cuentas.push(c);
+  try{
+    await saveSection('CUENTAS',['id','titular','banco','moneda','desc'],
+      D.cuentas.map(x=>[x.id,x.titular,x.banco,x.moneda,x.desc]));
+    renderAll(); closeMod('addCuenta');
+  }catch(e){ D.cuentas.pop(); toast('❌ '+e.message,true); }
+}
+
+// ─── ELIMINAR ────────────────────────────────────────────────────
+async function delFondo(id){
+  const f=D.fondos.find(x=>x.id===id); if(!f) return;
+  if(!confirm(`¿Eliminar "${f.nombre}"?\nSaldo: ${f.moneda==='USD'?fU(f.saldo):fC(f.saldo)}`)) return;
+  const backup=[...D.fondos]; D.fondos=D.fondos.filter(x=>x.id!==id);
+  try{
+    await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
+      D.fondos.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.moneda,x.tipo,x.vence]));
+    buildFondosForm(); renderAll();
+  }catch(e){ D.fondos=backup; toast('❌ '+e.message,true); }
+}
+async function delCdp(id){
+  const c=D.cdp.find(x=>x.id===id); if(!c) return;
+  if(!confirm(`¿Eliminar CDP "${c.nombre}"?\nSaldo: ${fC(c.saldo)}`)) return;
+  const backup=[...D.cdp]; D.cdp=D.cdp.filter(x=>x.id!==id);
+  try{
+    await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
+      D.cdp.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.vence,x.estado||'vigente',x.fecha_aplicado||'']));
+    buildCdpForm(); renderAll();
+  }catch(e){ D.cdp=backup; toast('❌ '+e.message,true); }
+}
+async function delPoliza(id){
+  const p=D.polizas.find(x=>x.id===id); if(!p) return;
+  if(!confirm(`¿Eliminar póliza "${p.nombre}"?`)) return;
+  const backup=[...D.polizas]; D.polizas=D.polizas.filter(x=>x.id!==id);
+  try{
+    await saveSection('POLIZAS',['id','nombre','titular','monto','moneda','ahorro','tipo'],
+      D.polizas.map(x=>[x.id,x.nombre,x.titular,x.monto,x.moneda,x.ahorro,x.tipo]));
+    buildPolizasForm(); renderAll();
+  }catch(e){ D.polizas=backup; toast('❌ '+e.message,true); }
+}
+async function delBien(id){
+  const b=D.bienes.find(x=>x.id===id); if(!b) return;
+  if(!confirm(`¿Eliminar "${b.nombre}"?\nValor: ${fU(b.valor)}`)) return;
+  const backup=[...D.bienes]; D.bienes=D.bienes.filter(x=>x.id!==id);
+  try{
+    await saveSection('BIENES',['id','nombre','tipo','valor','detalle','icon'],
+      D.bienes.map(x=>[x.id,x.nombre,x.tipo,x.valor,x.detalle,x.icon]));
+    buildBienesForm(); renderAll();
+  }catch(e){ D.bienes=backup; toast('❌ '+e.message,true); }
+}
+async function delCuenta(id){
+  const c=D.cuentas.find(x=>x.id===id); if(!c) return;
+  if(!confirm(`¿Eliminar cuenta de ${c.titular} en ${c.banco}?`)) return;
+  const backup=[...D.cuentas]; D.cuentas=D.cuentas.filter(x=>x.id!==id);
+  try{
+    await saveSection('CUENTAS',['id','titular','banco','moneda','desc'],
+      D.cuentas.map(x=>[x.id,x.titular,x.banco,x.moneda,x.desc]));
+    buildCuentasForm(); renderAll();
+  }catch(e){ D.cuentas=backup; toast('❌ '+e.message,true); }
 }
 
 async function saveMov(){
