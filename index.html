@@ -235,8 +235,91 @@ tr:hover td{background:#fafbff}
 .spin{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--cyan);
   border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* ─── GASTOS FIJOS ─── */
+.nav-tab.new{position:relative}
+.nav-tab.new::after{content:'NUEVO';position:absolute;top:6px;right:-2px;
+  background:var(--emerald);color:#fff;font-size:8px;font-weight:800;
+  padding:1px 5px;border-radius:6px;letter-spacing:.4px}
+.month-bar{display:flex;align-items:center;justify-content:center;gap:14px;
+  background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 18px;
+  margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.month-nav{background:transparent;border:1px solid var(--border);border-radius:10px;
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--muted);font-size:18px;font-weight:700;transition:.15s;font-family:var(--font)}
+.month-nav:hover{border-color:var(--cyan);color:var(--cyan);background:#f0f9ff}
+.month-current{font-size:16px;font-weight:700;color:var(--navy);
+  text-transform:capitalize;min-width:200px;text-align:center;letter-spacing:.3px}
+.month-status{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.5px;
+  padding:2px 8px;border-radius:6px;margin-left:8px;vertical-align:middle}
+.ms-curso{background:#dbeafe;color:#1e40af}
+.ms-cerrado{background:#d1fae5;color:#065f46}
+.ms-futuro{background:#f1f5f9;color:#64748b}
+.month-current small{display:block;font-size:11px;font-weight:500;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
+.kpaid{background:linear-gradient(135deg,#10b981,#059669);border-color:transparent}
+.kpaid .kl{color:#d1fae5}.kpaid .kv{color:#fff;font-size:28px}.kpaid .ks{color:#d1fae5}
+.kc.flash{animation:flashKpi .4s ease-out}
+@keyframes flashKpi{0%{box-shadow:0 0 0 0 rgba(14,165,233,.5)}100%{box-shadow:0 1px 4px rgba(0,0,0,.06)}}
+.progress-bar{height:6px;background:rgba(255,255,255,.2);border-radius:100px;
+  margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:#fbbf24;border-radius:100px;transition:width .4s ease-out}
+.th-hint{font-size:11px;color:var(--muted);background:#f8fafc;padding:5px 11px;
+  border-radius:8px;border:1px dashed var(--border)}
+thead th.th-q{text-align:center;width:200px}
+thead th.th-q span{display:block;font-size:10px;font-weight:600;color:#94a3b8;
+  text-transform:none;letter-spacing:.2px;margin-top:2px}
+.td-q{text-align:center}
+.td-concepto{font-weight:600;color:var(--navy)}
+.badge-occasional{display:inline-block;background:#fef3c7;color:#92400e;
+  font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;
+  margin-left:8px;letter-spacing:.4px;vertical-align:middle}
+.exp-cell{display:inline-flex;align-items:center;gap:8px;background:#fff;
+  border:1px solid var(--border);border-radius:10px;padding:8px 14px;
+  font-family:var(--font);font-size:13px;font-weight:700;color:var(--navy);
+  cursor:pointer;transition:all .18s cubic-bezier(.4,0,.2,1);
+  font-variant-numeric:tabular-nums;min-width:135px;justify-content:center;
+  position:relative;user-select:none}
+.exp-cell::before{content:'';width:14px;height:14px;border:1.5px solid #cbd5e1;
+  border-radius:4px;flex-shrink:0;background:#fff;transition:all .18s;
+  display:flex;align-items:center;justify-content:center;font-size:10px;
+  font-weight:800;color:#fff}
+.exp-cell:hover{border-color:var(--cyan);
+  box-shadow:0 6px 16px -4px rgba(14,165,233,.28);transform:translateY(-1px)}
+.exp-cell:hover::before{border-color:var(--cyan);background:#ecfeff}
+.exp-cell:active{transform:translateY(0);box-shadow:0 2px 6px rgba(14,165,233,.2)}
+.exp-cell.paid{background:#f1f5f9;border-color:transparent;color:#94a3b8;
+  text-decoration:line-through;text-decoration-color:#cbd5e1;font-weight:600}
+.exp-cell.paid::before{content:'✓';border:0;background:var(--emerald);
+  border-radius:50%;width:16px;height:16px;font-size:10px}
+.exp-cell.paid:hover{background:#fef2f2;color:#dc2626;text-decoration:none;
+  transform:translateY(0);box-shadow:0 2px 6px rgba(220,38,38,.1);border-color:#fecaca}
+.exp-cell.paid:hover::before{content:'↺';background:#dc2626;font-size:11px}
+.exp-cell.toggling{animation:expPop .26s cubic-bezier(.34,1.56,.64,1)}
+@keyframes expPop{0%{transform:scale(1)}50%{transform:scale(.92)}100%{transform:scale(1)}}
+.exp-empty{display:inline-flex;width:135px;justify-content:center;color:#cbd5e1;
+  font-size:18px;font-weight:300}
+tfoot td{padding:14px 20px;font-size:13px;font-weight:700;background:#fafbff;
+  border-top:2px solid var(--border)}
+tfoot td.tf-label{color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.6px}
+tfoot td.tf-amount{text-align:center;font-variant-numeric:tabular-nums;color:var(--navy);font-size:15px}
+tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);display:block;margin-top:2px}
+.empty-state{padding:32px 20px;text-align:center;color:var(--muted);font-size:13px}
+.empty-state-icon{font-size:32px;margin-bottom:8px;opacity:.5}
+.fb-add{background:#f0fdf4;border:1px dashed #86efac;color:#059669;
+  border-radius:12px;padding:10px;width:100%;font-family:var(--font);font-size:13px;
+  font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;
+  justify-content:center;gap:6px;margin-top:8px}
+.fb-add:hover{background:#dcfce7}
+.fb-gastos{display:grid;grid-template-columns:2.2fr 1fr 1fr 36px;gap:10px;align-items:end}
+.fb-gastos input{padding:7px 10px;font-size:13px}
+
 @media(max-width:768px){.cr{grid-template-columns:1fr}.kg{grid-template-columns:1fr 1fr}
-  .content{padding:16px}header,.nav-bar{padding:0 16px}}
+  .content{padding:16px}header,.nav-bar{padding:0 16px}
+  thead th.th-q{width:auto}
+  .exp-cell{min-width:110px;padding:6px 10px;font-size:12px}
+  .exp-empty{width:110px}
+  .fb-gastos{grid-template-columns:1fr 1fr 1fr 36px;gap:8px}
+  .month-current{min-width:160px;font-size:14px}}
 </style>
 </head>
 <body>
@@ -285,6 +368,7 @@ tr:hover td{background:#fafbff}
     <div class="nav-tab" data-tab="polizas">🛡️ Pólizas</div>
     <div class="nav-tab" data-tab="bienes">🏠 Bienes</div>
     <div class="nav-tab" data-tab="cuentas">💳 Cuentas</div>
+    <div class="nav-tab new" data-tab="gastos">💸 Gastos Fijos</div>
   </nav>
   <div class="content">
     <div class="section active" id="tab-dashboard">
@@ -365,6 +449,86 @@ tr:hover td{background:#fafbff}
           <button class="btn btn-outline" onclick="openMod('cuentas')">✏️ Editar</button>
         </div></div>
       <div id="cuentasC"></div>
+    </div>
+    <div class="section" id="tab-gastos">
+      <div class="sh">
+        <div>
+          <div class="st">Gastos Fijos por Quincena</div>
+          <div class="sd">Pagos del 17 (I Quincena) y del 02 (II Quincena) — click sobre el monto para marcar como pagado</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-add" onclick="openMod('addOcasional')">➕ Pago ocasional</button>
+          <button class="btn btn-outline" onclick="openMod('editGastos')">✏️ Editar gastos fijos</button>
+        </div>
+      </div>
+      <div class="info-box">
+        <div style="font-size:18px;line-height:1.2;flex-shrink:0">💡</div>
+        <div><strong>Cómo funciona:</strong> cada gasto se ve como un botón con su monto. Cuando lo pagás, hacés <strong>click</strong> sobre el monto y queda tachado y descontado del pendiente. <strong>Click de nuevo</strong> para deshacer. Cada mes guarda su propio estado — usá las flechas para ver meses pasados.</div>
+      </div>
+      <div class="month-bar">
+        <button class="month-nav" onclick="changeGastoMes(-1)" title="Mes anterior">←</button>
+        <div class="month-current">
+          <span id="gastoMonthLabel">—</span>
+          <span class="month-status" id="gastoMonthStatus"></span>
+          <small id="gastoMonthSub">—</small>
+        </div>
+        <button class="month-nav" onclick="changeGastoMes(1)" title="Mes siguiente">→</button>
+      </div>
+      <div class="kg">
+        <div class="kc ktotal" id="kpiGTotal">
+          <div class="kl">💼 Total del mes</div>
+          <div class="kv" id="kvGTotal">¢0</div>
+          <div class="ks" id="ksGTotal">0 conceptos</div>
+        </div>
+        <div class="kc" id="kpiGQ1">
+          <div class="kl">📅 I Quincena · 17</div>
+          <div class="kv" id="kvGQ1">¢0</div>
+          <div class="ks" id="ksGQ1">pendiente</div>
+        </div>
+        <div class="kc" id="kpiGQ2">
+          <div class="kl">📅 II Quincena · 02</div>
+          <div class="kv" id="kvGQ2">¢0</div>
+          <div class="ks" id="ksGQ2">pendiente</div>
+        </div>
+        <div class="kc kpaid" id="kpiGPaid">
+          <div class="kl">✓ Pagado del mes</div>
+          <div class="kv" id="kvGPaid">0%</div>
+          <div class="ks" id="ksGPaid">¢0 de ¢0</div>
+          <div class="progress-bar"><div class="progress-fill" id="gProgressFill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="tc">
+        <div class="th">
+          <div class="th-t">📋 Gastos Fijos Recurrentes</div>
+          <div class="th-hint">Click = marcar pagado · Click de nuevo = deshacer</div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th class="th-q">I Quincena<span>17 de cada mes</span></th>
+                <th class="th-q">II Quincena<span>02 de cada mes</span></th>
+              </tr>
+            </thead>
+            <tbody id="gastosBody"></tbody>
+            <tfoot>
+              <tr>
+                <td class="tf-label">Pendiente del mes</td>
+                <td class="tf-amount"><span id="tfGQ1Pendiente">¢0</span><span class="tf-paid" id="tfGQ1Pagado">+ ¢0 pagado</span></td>
+                <td class="tf-amount"><span id="tfGQ2Pendiente">¢0</span><span class="tf-paid" id="tfGQ2Pagado">+ ¢0 pagado</span></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="tc">
+        <div class="th">
+          <div class="th-t">⭐ Pagos Ocasionales · <span id="ocasionalMesLabel">—</span></div>
+          <button class="btn-add" onclick="openMod('addOcasional')">➕ Agregar</button>
+        </div>
+        <div class="tw" id="ocasionalWrap"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -560,6 +724,43 @@ tr:hover td{background:#fafbff}
   </div>
 </div>
 
+<!-- MODAL AGREGAR PAGO OCASIONAL -->
+<div class="ov" id="ovAddOcasional">
+  <div class="m"><div class="mt">⭐ Agregar Pago Ocasional</div>
+    <div class="info-box" style="margin-bottom:16px">
+      <div style="font-size:18px;line-height:1.2;flex-shrink:0">ℹ️</div>
+      <div>Este pago aparece <strong>solo en <span id="ocAddMes">—</span></strong>. Si lo necesitás todos los meses, agregalo como gasto fijo.</div>
+    </div>
+    <div class="fg"><label class="fl">Concepto</label>
+      <input class="fi" type="text" id="ocConcepto" placeholder="Ej: Renovación marchamo, regalo cumpleaños…"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Monto (₡)</label>
+        <input class="fi" type="number" id="ocMonto" placeholder="0"></div>
+      <div class="fg"><label class="fl">Quincena</label>
+        <select class="fi" id="ocQuincena">
+          <option value="q1">I Quincena (17)</option>
+          <option value="q2">II Quincena (02)</option>
+        </select></div>
+    </div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('addOcasional')">Cancelar</button>
+      <button class="btn-primary" onclick="saveOcasional()">Agregar pago</button></div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR GASTOS FIJOS -->
+<div class="ov" id="ovEditGastos">
+  <div class="m" style="max-width:720px"><div class="mt">✏️ Editar Gastos Fijos Recurrentes</div>
+    <div class="info-box" style="margin-bottom:16px">
+      <div style="font-size:18px;line-height:1.2;flex-shrink:0">⚠️</div>
+      <div>Estos cambios <strong>aplican a todos los meses</strong>. Para algo de un solo mes usá "Pago ocasional".</div>
+    </div>
+    <div id="editGastosList"></div>
+    <button class="fb-add" onclick="addGastoRow()">➕ Agregar nuevo gasto fijo</button>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('editGastos')">Cancelar</button>
+      <button class="btn-primary" onclick="saveGastosFijos()">Guardar cambios</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><span id="toastMsg"></span></div>
 
 <script>
@@ -639,7 +840,30 @@ const DEFAULT = {
     [2026,'ABRIL','CRECIFONDO','CRC',67863913,6769649,0,0,0,74633562],
     [2026,'ABRIL','SUPERFONDO DOLARES PLUS','USD',76397,0,0,0,0,76397],
     [2026,'ABRIL','BN INTERNACIONAL SUMA','USD',10029,1700,0,0,0,11729]
-  ]
+  ],
+  gastos_fijos:[
+    ['g1','Ahorro',200000,200000,1],
+    ['g2','Comida',180000,180000,2],
+    ['g3','Tarjeta',320000,350000,3],
+    ['g4','Ahorro / Honda',200000,0,4],
+    ['g5','Celulares',0,70000,5],
+    ['g6','Pensiones',0,300000,6],
+    ['g7','Luz U Nunciatura',0,2500,7],
+    ['g8','Cabletica / Telecable',0,40000,8],
+    ['g9','Universidad',200000,0,9],
+    ['g10','CCSS',0,118000,10],
+    ['g11','Patri-MA',80000,0,11],
+    ['g12','CCSS Alba',0,35000,12],
+    ['g13','Mesada',200000,0,13],
+    ['g14','Cuota Condominal U',0,175000,14],
+    ['g15','Cuota Condominal 3-10',0,40500,15],
+    ['g16','Luz 3-10',80000,0,16],
+    ['g17','Sistema SAIS',160000,160000,17],
+    ['g18','Salario Alba',339000,0,18],
+    ['g19','Contabilidad',70000,0,19]
+  ],
+  pagos_quincena:[],
+  ocasionales:[]
 };
 
 // ─── STATE ───────────────────────────────────────────────────────
@@ -705,7 +929,7 @@ async function ensureTabsExist(){
   if(!r.ok) throw new Error('No se pudo leer metadata del spreadsheet');
   const meta = await r.json();
   const existing = meta.sheets.map(s=>s.properties.title);
-  const needed = ['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL'];
+  const needed = ['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL','GASTOS_FIJOS','PAGOS_QUINCENA','OCASIONALES'];
   const missing = needed.filter(t=>!existing.includes(t));
   if(!missing.length) return;
   const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{
@@ -724,7 +948,10 @@ function defaultPayload(){
     POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
     BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
     CUENTAS:   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas],
-    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],...DEFAULT.historial]
+    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],...DEFAULT.historial],
+    GASTOS_FIJOS:   [['id','concepto','q1','q2','orden'],...DEFAULT.gastos_fijos],
+    PAGOS_QUINCENA: [['anio','mes','gasto_id','quincena'],...DEFAULT.pagos_quincena],
+    OCASIONALES:    [['id','anio','mes','concepto','monto','quincena','pagado'],...DEFAULT.ocasionales]
   };
 }
 
@@ -744,7 +971,7 @@ async function batchWrite(sections){
 
 async function populateSheet() {
   await ensureTabsExist();
-  await batchWrite(['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL']);
+  await batchWrite(['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL','GASTOS_FIJOS','PAGOS_QUINCENA','OCASIONALES']);
 }
 
 // ─── LOAD FROM SHEETS ────────────────────────────────────────────
@@ -767,9 +994,10 @@ async function shGetSafe(range){
 async function loadFromSheets() {
   toast('Cargando datos…', false);
   try {
-    let [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
+    let [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
       shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
-      shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J')
+      shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J'),
+      shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
     ]);
     const miss = [];
     if(fondos.length<2)   miss.push('FONDOS');
@@ -778,6 +1006,9 @@ async function loadFromSheets() {
     if(bienes.length<2)   miss.push('BIENES');
     if(cuentas.length<2)  miss.push('CUENTAS');
     if(hist.length<2)     miss.push('HISTORIAL');
+    if(gfijos.length<2)   miss.push('GASTOS_FIJOS');
+    if(pagosQ.length<1)   miss.push('PAGOS_QUINCENA');
+    if(ocas.length<1)     miss.push('OCASIONALES');
     if(miss.length){
       toast('Llenando secciones vacías: '+miss.join(', ')+'…', false);
       try {
@@ -789,9 +1020,10 @@ async function loadFromSheets() {
         alert('No se pudo rellenar el spreadsheet.\n\n'+e.message+'\n\nAbre la consola (F12 → Consola) y envía el mensaje [batchWrite] FAIL.');
         throw e;
       }
-      [cfg, fondos, cdp, polizas, bienes, cuentas, hist] = await Promise.all([
+      [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
         shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
-        shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J')
+        shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J'),
+        shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
       ]);
     }
     const eb = document.getElementById('emptyBanner');
@@ -803,7 +1035,10 @@ async function loadFromSheets() {
       polizas:  rowsToObjs(polizas),
       bienes:   rowsToObjs(bienes),
       cuentas:  rowsToObjs(cuentas),
-      historial: rowsToObjs(hist)
+      historial: rowsToObjs(hist),
+      gastos_fijos:   rowsToObjs(gfijos),
+      pagos_quincena: rowsToObjs(pagosQ),
+      ocasionales:    rowsToObjs(ocas)
     };
     // Coerce numbers
     D.fondos.forEach(f=>{f.saldo=+f.saldo||0});
@@ -814,6 +1049,10 @@ async function loadFromSheets() {
       h.anio=+h.anio;h.saldo_inicial=+h.saldo_inicial||0;h.aportes=+h.aportes||0;
       h.retiros=+h.retiros||0;h.tasa=+h.tasa||0;h.interes=+h.interes||0;h.saldo_final=+h.saldo_final||0;
     });
+    D.gastos_fijos.forEach(g=>{g.q1=+g.q1||0;g.q2=+g.q2||0;g.orden=+g.orden||0});
+    D.gastos_fijos.sort((a,b)=>a.orden-b.orden);
+    D.pagos_quincena.forEach(p=>{p.anio=+p.anio||0;p.mes=+p.mes||0});
+    D.ocasionales.forEach(o=>{o.anio=+o.anio||0;o.mes=+o.mes||0;o.monto=+o.monto||0;o.pagado=+o.pagado?1:0});
     const upd = cfg[1]?.[1]?new Date(cfg[1][1]).toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'}):'—';
     document.getElementById('hdrSub').textContent = 'Actualizado: '+upd;
     document.getElementById('dashDesc').textContent = 'Datos desde Google Sheets · '+upd;
@@ -922,7 +1161,7 @@ window.addEventListener('load', initGSI);
 function renderAll(){
   if(!D) return;
   document.getElementById('tcChip').textContent='T.C. '+fC(tc());
-  renderDash(); renderFondos(); renderHistorial(); renderCDP(); renderPolizas(); renderBienes(); renderCuentas();
+  renderDash(); renderFondos(); renderHistorial(); renderCDP(); renderPolizas(); renderBienes(); renderCuentas(); renderGastos();
 }
 
 // DASHBOARD
@@ -1140,7 +1379,8 @@ function renderCuentas(){
 // ─── MODALS ──────────────────────────────────────────────────────
 const MOD_MAP = {fondos:'ovFondos',cdp:'ovCdp',bienes:'ovBienes',mov:'ovMov',pdf:'ovPdf',
   polizas:'ovPolizas',cuentas:'ovCuentas',
-  addFondo:'ovAddFondo',addCdp:'ovAddCdp',addPoliza:'ovAddPoliza',addBien:'ovAddBien',addCuenta:'ovAddCuenta'};
+  addFondo:'ovAddFondo',addCdp:'ovAddCdp',addPoliza:'ovAddPoliza',addBien:'ovAddBien',addCuenta:'ovAddCuenta',
+  addOcasional:'ovAddOcasional',editGastos:'ovEditGastos'};
 function openMod(k){
   if(k==='fondos') buildFondosForm();
   if(k==='cdp') buildCdpForm();
@@ -1152,6 +1392,8 @@ function openMod(k){
   if(k==='addPoliza') prepareAddPoliza();
   if(k==='addBien') prepareAddBien();
   if(k==='addCuenta') prepareAddCuenta();
+  if(k==='addOcasional') prepareAddOcasional();
+  if(k==='editGastos') buildEditGastosForm();
   document.getElementById(MOD_MAP[k]).classList.add('open');
 }
 function closeMod(k){document.getElementById(MOD_MAP[k]).classList.remove('open');}
@@ -1682,6 +1924,239 @@ function exportExcel(){
 
   XLSX.writeFile(wb,'Control_Inversiones_'+new Date().toISOString().substring(0,10)+'.xlsx');
   toast('✅ Excel descargado');
+}
+
+// ─── GASTOS FIJOS ────────────────────────────────────────────────
+const G_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+let gastoMes = (function(){const d=new Date();return {y:d.getFullYear(), m:d.getMonth()};})();
+
+function gFmt(v){return '₡'+Math.round(v||0).toLocaleString('es-CR');}
+
+function gIsPaidFijo(id, q){
+  return D.pagos_quincena.some(p=>p.anio===gastoMes.y && p.mes===gastoMes.m && p.gasto_id===id && p.quincena===q);
+}
+
+function gOcasionalesMes(){
+  return D.ocasionales.filter(o=>o.anio===gastoMes.y && o.mes===gastoMes.m);
+}
+
+function gMonthStatus(y, m){
+  const today = new Date();
+  if(y < today.getFullYear() || (y === today.getFullYear() && m < today.getMonth())) return 'cerrado';
+  if(y === today.getFullYear() && m === today.getMonth()) return 'curso';
+  return 'futuro';
+}
+
+function gCellHTML(monto, paid, onclick){
+  if(!monto || monto<=0) return `<td class="td-q"><span class="exp-empty">—</span></td>`;
+  return `<td class="td-q"><button class="exp-cell ${paid?'paid':''}" onclick="this.classList.add('toggling');setTimeout(()=>this.classList.remove('toggling'),260);${onclick}"><span>${gFmt(monto)}</span></button></td>`;
+}
+
+function renderGastos(){
+  if(!D || !D.gastos_fijos) return;
+  // Selector mes
+  const label = `${G_MESES[gastoMes.m]} ${gastoMes.y}`;
+  document.getElementById('gastoMonthLabel').textContent = label;
+  document.getElementById('ocasionalMesLabel').textContent = label;
+  const status = gMonthStatus(gastoMes.y, gastoMes.m);
+  const stEl = document.getElementById('gastoMonthStatus');
+  const subEl = document.getElementById('gastoMonthSub');
+  stEl.className = 'month-status ms-'+status;
+  if(status==='curso'){stEl.textContent='EN CURSO';subEl.textContent='Mes en curso';}
+  else if(status==='cerrado'){stEl.textContent='CERRADO';subEl.textContent='Mes pasado';}
+  else {stEl.textContent='FUTURO';subEl.textContent='Aún no llega';}
+
+  // Tabla gastos fijos
+  document.getElementById('gastosBody').innerHTML = D.gastos_fijos.map(g=>`
+    <tr>
+      <td class="td-concepto">${g.concepto||''}</td>
+      ${gCellHTML(g.q1, gIsPaidFijo(g.id,'q1'), `togglePagoFijo('${g.id}','q1')`)}
+      ${gCellHTML(g.q2, gIsPaidFijo(g.id,'q2'), `togglePagoFijo('${g.id}','q2')`)}
+    </tr>
+  `).join('');
+
+  // Ocasionales
+  const ocs = gOcasionalesMes();
+  const wrap = document.getElementById('ocasionalWrap');
+  if(ocs.length===0){
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⭐</div><div>No hay pagos ocasionales este mes.</div><div style="margin-top:6px;font-size:12px">Usá <strong>"Agregar"</strong> para registrar un pago no recurrente.</div></div>`;
+  } else {
+    wrap.innerHTML = `<table>
+      <thead><tr><th>Concepto</th><th class="th-q">I Quincena<span>17</span></th><th class="th-q">II Quincena<span>02</span></th><th style="width:50px"></th></tr></thead>
+      <tbody>${ocs.map(o=>`<tr>
+        <td class="td-concepto">${o.concepto}<span class="badge-occasional">OCASIONAL</span></td>
+        ${o.quincena==='q1' ? gCellHTML(o.monto, !!o.pagado, `toggleOcasional('${o.id}')`) : `<td class="td-q"><span class="exp-empty">—</span></td>`}
+        ${o.quincena==='q2' ? gCellHTML(o.monto, !!o.pagado, `toggleOcasional('${o.id}')`) : `<td class="td-q"><span class="exp-empty">—</span></td>`}
+        <td><button class="btn-del" onclick="deleteOcasional('${o.id}')" title="Eliminar">🗑️</button></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  // Totales
+  let q1Pend=0, q1Pag=0, q2Pend=0, q2Pag=0;
+  D.gastos_fijos.forEach(g=>{
+    if(g.q1>0){ if(gIsPaidFijo(g.id,'q1')) q1Pag+=g.q1; else q1Pend+=g.q1; }
+    if(g.q2>0){ if(gIsPaidFijo(g.id,'q2')) q2Pag+=g.q2; else q2Pend+=g.q2; }
+  });
+  ocs.forEach(o=>{
+    if(o.quincena==='q1'){ if(o.pagado) q1Pag+=o.monto; else q1Pend+=o.monto; }
+    else { if(o.pagado) q2Pag+=o.monto; else q2Pend+=o.monto; }
+  });
+  const totalMes = q1Pend+q1Pag+q2Pend+q2Pag;
+  const pagadoTotal = q1Pag+q2Pag;
+  const pct = totalMes>0 ? Math.round((pagadoTotal/totalMes)*100) : 0;
+  const conceptos = D.gastos_fijos.filter(g=>g.q1>0||g.q2>0).length + ocs.length;
+
+  document.getElementById('kvGTotal').textContent = gFmt(totalMes);
+  document.getElementById('ksGTotal').textContent = `${conceptos} conceptos`;
+  document.getElementById('kvGQ1').textContent = gFmt(q1Pend);
+  document.getElementById('ksGQ1').textContent = q1Pend>0 ? `pendiente · ${gFmt(q1Pag)} pagado` : `✓ todo pagado · ${gFmt(q1Pag)}`;
+  document.getElementById('kpiGQ1').style.borderLeft = q1Pend>0 ? '4px solid var(--amber)' : '4px solid var(--emerald)';
+  document.getElementById('kvGQ2').textContent = gFmt(q2Pend);
+  document.getElementById('ksGQ2').textContent = q2Pend>0 ? `pendiente · ${gFmt(q2Pag)} pagado` : `✓ todo pagado · ${gFmt(q2Pag)}`;
+  document.getElementById('kpiGQ2').style.borderLeft = q2Pend>0 ? '4px solid var(--amber)' : '4px solid var(--emerald)';
+  document.getElementById('kvGPaid').textContent = pct+'%';
+  document.getElementById('ksGPaid').textContent = `${gFmt(pagadoTotal)} de ${gFmt(totalMes)}`;
+  document.getElementById('gProgressFill').style.width = pct+'%';
+  document.getElementById('tfGQ1Pendiente').textContent = gFmt(q1Pend);
+  document.getElementById('tfGQ1Pagado').textContent = `+ ${gFmt(q1Pag)} ya pagado`;
+  document.getElementById('tfGQ2Pendiente').textContent = gFmt(q2Pend);
+  document.getElementById('tfGQ2Pagado').textContent = `+ ${gFmt(q2Pag)} ya pagado`;
+
+  const flashEl = document.getElementById('kpiGPaid');
+  flashEl.classList.add('flash');
+  setTimeout(()=>flashEl.classList.remove('flash'), 400);
+}
+
+function changeGastoMes(delta){
+  gastoMes.m += delta;
+  if(gastoMes.m < 0){ gastoMes.m=11; gastoMes.y--; }
+  if(gastoMes.m > 11){ gastoMes.m=0; gastoMes.y++; }
+  renderGastos();
+}
+
+// ─── PERSISTENCIA SHEETS ─────────────────────────────────────────
+async function persistPagos(){
+  await shClear('PAGOS_QUINCENA!A:Z');
+  await shSet('PAGOS_QUINCENA!A1', [
+    ['anio','mes','gasto_id','quincena'],
+    ...D.pagos_quincena.map(p=>[p.anio, p.mes, p.gasto_id, p.quincena])
+  ]);
+}
+async function persistOcasionales(){
+  await shClear('OCASIONALES!A:Z');
+  await shSet('OCASIONALES!A1', [
+    ['id','anio','mes','concepto','monto','quincena','pagado'],
+    ...D.ocasionales.map(o=>[o.id, o.anio, o.mes, o.concepto, o.monto, o.quincena, o.pagado?1:0])
+  ]);
+}
+async function persistGastosFijos(){
+  await shClear('GASTOS_FIJOS!A:Z');
+  await shSet('GASTOS_FIJOS!A1', [
+    ['id','concepto','q1','q2','orden'],
+    ...D.gastos_fijos.map(g=>[g.id, g.concepto, g.q1, g.q2, g.orden])
+  ]);
+}
+
+// ─── TOGGLES ─────────────────────────────────────────────────────
+async function togglePagoFijo(id, q){
+  const idx = D.pagos_quincena.findIndex(p=>p.anio===gastoMes.y && p.mes===gastoMes.m && p.gasto_id===id && p.quincena===q);
+  let nowPaid;
+  if(idx>=0){ D.pagos_quincena.splice(idx,1); nowPaid=false; }
+  else { D.pagos_quincena.push({anio:gastoMes.y, mes:gastoMes.m, gasto_id:id, quincena:q}); nowPaid=true; }
+  renderGastos();
+  toast(nowPaid?'✓ Marcado como pagado':'↺ Pago deshecho', false);
+  try { await persistPagos(); }
+  catch(e){ toast('❌ Error al guardar: '+e.message, true); console.error(e); }
+}
+
+async function toggleOcasional(id){
+  const o = D.ocasionales.find(x=>x.id===id);
+  if(!o) return;
+  o.pagado = o.pagado ? 0 : 1;
+  renderGastos();
+  toast(o.pagado?'✓ Marcado como pagado':'↺ Pago deshecho', false);
+  try { await persistOcasionales(); }
+  catch(e){ toast('❌ Error al guardar: '+e.message, true); console.error(e); }
+}
+
+// ─── OCASIONALES ─────────────────────────────────────────────────
+function prepareAddOcasional(){
+  document.getElementById('ocConcepto').value = '';
+  document.getElementById('ocMonto').value = '';
+  document.getElementById('ocQuincena').value = 'q1';
+  document.getElementById('ocAddMes').textContent = `${G_MESES[gastoMes.m]} ${gastoMes.y}`;
+}
+
+async function saveOcasional(){
+  const concepto = document.getElementById('ocConcepto').value.trim();
+  const monto    = parseFloat(document.getElementById('ocMonto').value);
+  const q        = document.getElementById('ocQuincena').value;
+  if(!concepto || !monto || monto<=0){
+    toast('⚠️ Completá concepto y monto válido', true);
+    return;
+  }
+  const id = 'oc'+Date.now().toString(36);
+  D.ocasionales.push({id, anio:gastoMes.y, mes:gastoMes.m, concepto, monto, quincena:q, pagado:0});
+  closeMod('addOcasional');
+  renderGastos();
+  try { await persistOcasionales(); toast(`⭐ Pago "${concepto}" agregado`); }
+  catch(e){ toast('❌ Error al guardar: '+e.message, true); console.error(e); }
+}
+
+async function deleteOcasional(id){
+  if(!confirm('¿Eliminar este pago ocasional?')) return;
+  const idx = D.ocasionales.findIndex(o=>o.id===id);
+  if(idx<0) return;
+  D.ocasionales.splice(idx,1);
+  renderGastos();
+  try { await persistOcasionales(); toast('🗑️ Pago ocasional eliminado'); }
+  catch(e){ toast('❌ Error al guardar: '+e.message, true); console.error(e); }
+}
+
+// ─── EDITAR GASTOS FIJOS ─────────────────────────────────────────
+let gEditDraft = [];
+function buildEditGastosForm(){
+  gEditDraft = D.gastos_fijos.map(g=>({...g}));
+  drawEditGastosList();
+}
+function drawEditGastosList(){
+  document.getElementById('editGastosList').innerHTML = `
+    <div class="fb fb-gastos" style="background:#f8fafc;font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">
+      <div>Concepto</div><div>I Quincena (₡)</div><div>II Quincena (₡)</div><div></div>
+    </div>` +
+    gEditDraft.map((e,i)=>`
+      <div class="fb fb-gastos">
+        <input class="fi" type="text" value="${(e.concepto||'').replace(/"/g,'&quot;')}" onchange="gEditDraft[${i}].concepto=this.value">
+        <input class="fi" type="number" value="${e.q1||0}" onchange="gEditDraft[${i}].q1=parseFloat(this.value)||0">
+        <input class="fi" type="number" value="${e.q2||0}" onchange="gEditDraft[${i}].q2=parseFloat(this.value)||0">
+        <button class="btn-del" onclick="removeGastoRow(${i})" title="Eliminar">🗑️</button>
+      </div>
+    `).join('');
+}
+function addGastoRow(){
+  const maxOrden = gEditDraft.reduce((m,e)=>Math.max(m, e.orden||0), 0);
+  gEditDraft.push({id:'g'+Date.now().toString(36), concepto:'', q1:0, q2:0, orden:maxOrden+1});
+  drawEditGastosList();
+}
+function removeGastoRow(i){
+  gEditDraft.splice(i,1);
+  drawEditGastosList();
+}
+async function saveGastosFijos(){
+  D.gastos_fijos = gEditDraft
+    .filter(e=>e.concepto && e.concepto.trim())
+    .map((e,i)=>({id:e.id, concepto:e.concepto.trim(), q1:+e.q1||0, q2:+e.q2||0, orden:e.orden||(i+1)}));
+  // Limpiar pagos de ids que ya no existen
+  const validIds = new Set(D.gastos_fijos.map(g=>g.id));
+  D.pagos_quincena = D.pagos_quincena.filter(p=>validIds.has(p.gasto_id));
+  closeMod('editGastos');
+  renderGastos();
+  try {
+    await persistGastosFijos();
+    await persistPagos();
+    toast('✏️ Gastos fijos actualizados');
+  } catch(e){ toast('❌ Error al guardar: '+e.message, true); console.error(e); }
 }
 
 // ─── NAV ─────────────────────────────────────────────────────────
