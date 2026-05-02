@@ -1967,6 +1967,7 @@ function parseFondoPDF(text){
   if(/crecifondo/i.test(text)) { fondo='CRECIFONDO'; nombreRaw='CreciFondo'; }
   else if(/superfondo.*d[oó]lar|d[oó]lares\s*plus/i.test(text)) { fondo='SUPERFONDO DOLARES PLUS'; nombreRaw='Superfondo Dólares Plus'; }
   else if(/internacional\s*suma/i.test(text)) { fondo='BN INTERNACIONAL SUMA'; nombreRaw='BN Internacional Suma'; }
+  else if(/superfondo.*col[oó]n/i.test(text)) { fondo='SUPERFONDO COLONES'; nombreRaw='Superfondo Colones'; }
   else {
     const nombreM = text.match(/BN\s+(?!Sociedad\s+Administradora)([A-Za-zÁÉÍÓÚáéíóúñÑ][^\n]*?)(?:\s*-\s*no\s+diversificado|\n)/i);
     nombreRaw = (nombreM?.[1]||'').trim().replace(/\s+/g,' ');
@@ -2041,6 +2042,7 @@ function fondoCanonico(nombre){
   if(/crecifondo/i.test(nombre)) return 'CRECIFONDO';
   if(/superfondo.*d[oó]lar|d[oó]lares\s*plus/i.test(nombre)) return 'SUPERFONDO DOLARES PLUS';
   if(/internacional\s*suma|^bn\s*internacional/i.test(nombre)) return 'BN INTERNACIONAL SUMA';
+  if(/superfondo.*col[oó]n/i.test(nombre)) return 'SUPERFONDO COLONES';
   return null;
 }
 
@@ -2068,7 +2070,10 @@ async function importPdfRows(){
   // desempata por similitud con el titular del PDF.
   let propagados = 0;
   for(const info of Object.values(ultimoPorFondo)){
-    const candidatos = D.fondos.filter(x => fondoCanonico(x.nombre)===info.fondo && x.moneda===info.moneda);
+    const candidatos = D.fondos.filter(x => {
+      const c = fondoCanonico(x.nombre) || x.nombre.toUpperCase();
+      return c === info.fondo && x.moneda === info.moneda;
+    });
     let f = null;
     if(candidatos.length === 1) f = candidatos[0];
     else if(candidatos.length > 1){
