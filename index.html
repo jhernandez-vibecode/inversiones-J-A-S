@@ -1270,7 +1270,7 @@ function renderHistorial(){
       scales:{y:{ticks:{callback:v=>fU(v)},grid:{color:'#f1f5f9'}},x:{grid:{color:'#f1f5f9'}}}}});
   document.getElementById('histC').innerHTML=`<div class="tc"><div class="tw"><table>
     <thead><tr><th>Mes</th><th>Fondo</th><th>Mon.</th><th>Saldo Inicial</th><th>Aportes</th>
-      <th>Retiros</th><th>Tasa</th><th>Interés</th><th>Saldo Final</th></tr></thead>
+      <th>Retiros</th><th>Tasa</th><th>Interés</th><th>Saldo Final</th><th></th></tr></thead>
     <tbody>${hist.map(r=>`<tr>
       <td style="font-weight:600;color:var(--navy)">${r.mes}</td>
       <td style="font-size:12px">${r.fondo}</td>
@@ -1281,7 +1281,23 @@ function renderHistorial(){
       <td>${r.tasa>0?fP(r.tasa):'—'}</td>
       <td style="color:${r.interes>=0?'var(--emerald)':'var(--red)'}">${r.moneda==='USD'?fU(r.interes):fC(r.interes)}</td>
       <td style="font-weight:700">${r.moneda==='USD'?fU(r.saldo_final):fC(r.saldo_final)}</td>
+      <td><button class="btn-del" onclick="deleteHistorial(${r.anio},'${r.mes}','${(r.fondo||'').replace(/'/g,"\\'")}')" title="Eliminar registro">🗑</button></td>
     </tr>`).join('')}</tbody></table></div></div>`;
+}
+
+async function deleteHistorial(anio, mes, fondo){
+  const r = D.historial.find(h=>+h.anio===+anio && h.mes===mes && h.fondo===fondo);
+  if(!r) return;
+  const saldoFmt = r.moneda==='USD'?fU(r.saldo_final):fC(r.saldo_final);
+  if(!confirm(`¿Eliminar registro de ${fondo} · ${mes} ${anio}?\nSaldo final: ${saldoFmt}\n\nEsta acción no se puede deshacer.`)) return;
+  const backup = [...D.historial];
+  D.historial = D.historial.filter(h=>!(+h.anio===+anio && h.mes===mes && h.fondo===fondo));
+  try{
+    await saveSection('HISTORIAL',
+      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],
+      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final]));
+    renderAll();
+  }catch(e){ D.historial = backup; toast('❌ '+e.message, true); }
 }
 
 // CDP
@@ -1409,6 +1425,8 @@ function buildFondosForm(){
         <div class="fb-n" style="margin:0">${f.nombre} <span class="b ${f.moneda==='USD'?'b-blue':'b-purple'}">${f.moneda}</span></div>
         ${delBtn('delFondo',f.id)}
       </div>
+      <div class="fg"><label class="fl">Nombre</label>
+        <input class="fi" type="text" id="fn_${i}" value="${f.nombre.replace(/"/g,'&quot;')}"></div>
       <div class="fr">
         <div class="fg"><label class="fl">Saldo (${f.moneda})</label>
           <input class="fi" type="number" id="fs_${i}" value="${f.saldo}" step="0.01"></div>
@@ -1421,6 +1439,8 @@ function buildFondosForm(){
 async function saveFondos(){
   D.fondos.forEach((f,i)=>{
     const el=document.getElementById('fs_'+i); if(!el) return;
+    const nombreEl=document.getElementById('fn_'+i);
+    if(nombreEl && nombreEl.value.trim()) f.nombre=nombreEl.value.trim();
     f.saldo=parseFloat(el.value)||0;
     f.vence=document.getElementById('fv_'+i).value;
   });
