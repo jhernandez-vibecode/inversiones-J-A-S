@@ -1200,7 +1200,9 @@ function renderDash(){
     const color=palette[i%palette.length];
     const firstName=(f.titular||'').split(/\s+/)[0]||'';
     const monthly=meses4.map(m=>{
-      const r=h26.find(x=>x.mes===m && matchHistorialFondo(x,f));
+      const matches=h26.filter(x=>x.mes===m && matchHistorialFondo(x,f));
+      // Si hay duplicados (registro viejo sin titular + nuevo con titular), preferir el que tenga titular
+      const r=matches.find(x=>x.titular)||matches[0];
       return r?(r.moneda==='CRC'?r.saldo_final/tcv:r.saldo_final):null;
     });
     // Si no hay ningún dato del año, dibujar el saldo actual como línea constante
@@ -1273,7 +1275,8 @@ function renderHistorial(){
       const color=palette[i%palette.length];
       const firstName=(f.titular||'').split(/\s+/)[0]||'';
       const monthly=meses4.map(m=>{
-        const r=hist.find(h=>h.mes===m && matchHistorialFondo(h,f));
+        const matches=hist.filter(h=>h.mes===m && matchHistorialFondo(h,f));
+        const r=matches.find(x=>x.titular)||matches[0];
         return r?(r.moneda==='CRC'?r.saldo_final/tcvH:r.saldo_final):null;
       });
       // Si el fondo no tiene historial en el año seleccionado, mostrar saldo actual como línea constante
@@ -1361,10 +1364,12 @@ function renderHistMovimientos(){
   const fmt = fondoSel.moneda==='USD' ? fU : fC;
   const tot = {dep:0, ret:0, gan:0};
   const porMes = MORD.map(m => {
-    const r = yearRows.find(h => h.mes===m);
-    const dep = +(r?.aportes||0), ret = +(r?.retiros||0), gan = +(r?.interes||0);
+    const matches = yearRows.filter(h => h.mes===m);
+    const dep = matches.reduce((s,r)=>s+(+(r.aportes)||0),0);
+    const ret = matches.reduce((s,r)=>s+(+(r.retiros)||0),0);
+    const gan = matches.reduce((s,r)=>s+(+(r.interes)||0),0);
     tot.dep += dep; tot.ret += ret; tot.gan += gan;
-    return {mes:m, dep, ret, gan, has: !!r};
+    return {mes:m, dep, ret, gan, has: matches.length>0};
   });
   const dash = '<span style="color:var(--muted)">—</span>';
   const sinDatos = !yearRows.length;
