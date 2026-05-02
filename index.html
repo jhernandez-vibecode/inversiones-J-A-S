@@ -1193,16 +1193,29 @@ function renderDash(){
   const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
   const h26=D.historial.filter(h=>+h.anio===2026);
   const meses=[...new Set(h26.map(r=>r.mes))].sort((a,b)=>MORD.indexOf(a)-MORD.indexOf(b));
-  const lDs=[
-    {l:'Crecifondo',c:'#6366f1',f:'CRECIFONDO',crc:true},
-    {l:'Superfondo $',c:'#0ea5e9',f:'SUPERFONDO DOLARES PLUS',crc:false},
-    {l:'BN Intern.',c:'#10b981',f:'BN INTERNACIONAL SUMA',crc:false}
-  ].map(s=>({label:s.l,borderColor:s.c,backgroundColor:s.c+'20',tension:.4,fill:false,
-    pointRadius:5,spanGaps:true,data:meses.map(m=>{const r=h26.find(x=>x.mes===m&&x.fondo===s.f);
-      return r?(s.crc?r.saldo_final/tc():r.saldo_final):null})}));
+  const meses4=meses.length?meses:['ENERO','FEBRERO','MARZO','ABRIL'];
+  const palette=['#6366f1','#0ea5e9','#10b981','#f59e0b','#a855f7','#ec4899'];
+  const tcv=tc();
+  const lDs=D.fondos.map((f,i)=>{
+    const color=palette[i%palette.length];
+    const firstName=(f.titular||'').split(/\s+/)[0]||'';
+    const monthly=meses4.map(m=>{
+      const r=h26.find(x=>x.mes===m && matchHistorialFondo(x,f));
+      return r?(r.moneda==='CRC'?r.saldo_final/tcv:r.saldo_final):null;
+    });
+    // Si no hay ningún dato del año, dibujar el saldo actual como línea constante
+    const sinDatos=monthly.every(v=>v===null);
+    const saldoUsd=f.moneda==='CRC'?(+f.saldo||0)/tcv:(+f.saldo||0);
+    const data=sinDatos?monthly.map(()=>saldoUsd):monthly;
+    return {label:f.nombre+(firstName?' · '+firstName:'')+(sinDatos?' (saldo actual)':''),
+      borderColor:color,backgroundColor:color+'20',tension:.4,fill:false,
+      borderDash:sinDatos?[6,4]:[],
+      pointRadius:5,spanGaps:true,data};
+  });
+  const labelsLine=meses4;
   if(window._cL) window._cL.destroy();
   window._cL=new Chart(document.getElementById('cLine'),{type:'line',
-    data:{labels:meses.map(m=>m.substring(0,3)),datasets:lDs},
+    data:{labels:labelsLine.map(m=>m.substring(0,3)),datasets:lDs},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:12},padding:12}},
         tooltip:{callbacks:{label:ctx=>' '+fU(ctx.parsed.y)}}},
@@ -1251,19 +1264,26 @@ function renderHistorial(){
   const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
   const hist=D.historial.filter(h=>+h.anio===+selYear);
   const meses=[...new Set(hist.map(r=>r.mes))].sort((a,b)=>MORD.indexOf(a)-MORD.indexOf(b));
+  const meses4 = meses.length ? meses : ['ENERO','FEBRERO','MARZO','ABRIL'];
   const palette=['#6366f1','#0ea5e9','#10b981','#f59e0b','#a855f7','#ec4899'];
+  const tcvH=tc();
   if(window._cH) window._cH.destroy();
   window._cH=new Chart(document.getElementById('cHist'),{type:'line',
-    data:{labels:meses.map(m=>m.substring(0,3)),datasets:D.fondos.map((f,i)=>{
+    data:{labels:meses4.map(m=>m.substring(0,3)),datasets:D.fondos.map((f,i)=>{
       const color=palette[i%palette.length];
-      const tcv=tc();
       const firstName=(f.titular||'').split(/\s+/)[0]||'';
-      return {label:f.nombre+(firstName?' · '+firstName:''),
+      const monthly=meses4.map(m=>{
+        const r=hist.find(h=>h.mes===m && matchHistorialFondo(h,f));
+        return r?(r.moneda==='CRC'?r.saldo_final/tcvH:r.saldo_final):null;
+      });
+      // Si el fondo no tiene historial en el año seleccionado, mostrar saldo actual como línea constante
+      const sinDatos=monthly.every(v=>v===null);
+      const saldoUsd=f.moneda==='CRC'?(+f.saldo||0)/tcvH:(+f.saldo||0);
+      const data=sinDatos?monthly.map(()=>saldoUsd):monthly;
+      return {label:f.nombre+(firstName?' · '+firstName:'')+(sinDatos?' (saldo actual)':''),
         borderColor:color,backgroundColor:color+'20',tension:.4,fill:false,
-        pointRadius:5,spanGaps:true,data:meses.map(m=>{
-          const r=hist.find(h=>h.mes===m && matchHistorialFondo(h,f));
-          return r?(r.moneda==='CRC'?r.saldo_final/tcv:r.saldo_final):null;
-        })};
+        borderDash:sinDatos?[6,4]:[],
+        pointRadius:5,spanGaps:true,data};
     })},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:12},padding:12}},
