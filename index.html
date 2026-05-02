@@ -413,6 +413,7 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
         <div class="cw" style="height:300px"><canvas id="cHist"></canvas></div>
       </div>
       <div id="histC"></div>
+      <div id="histMov" style="margin-top:24px"></div>
     </div>
     <div class="section" id="tab-cdp">
       <div class="sh"><div><div class="st">Certificados de Depósito</div>
@@ -948,7 +949,7 @@ function defaultPayload(){
     POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
     BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
     CUENTAS:   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas],
-    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],...DEFAULT.historial],
+    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],...DEFAULT.historial],
     GASTOS_FIJOS:   [['id','concepto','q1','q2','orden'],...DEFAULT.gastos_fijos],
     PAGOS_QUINCENA: [['anio','mes','gasto_id','quincena'],...DEFAULT.pagos_quincena],
     OCASIONALES:    [['id','anio','mes','concepto','monto','quincena','pagado'],...DEFAULT.ocasionales]
@@ -996,7 +997,7 @@ async function loadFromSheets() {
   try {
     let [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
       shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
-      shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J'),
+      shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:K'),
       shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
     ]);
     const miss = [];
@@ -1022,7 +1023,7 @@ async function loadFromSheets() {
       }
       [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
         shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
-        shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:J'),
+        shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:K'),
         shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
       ]);
     }
@@ -1270,7 +1271,7 @@ function renderHistorial(){
       scales:{y:{ticks:{callback:v=>fU(v)},grid:{color:'#f1f5f9'}},x:{grid:{color:'#f1f5f9'}}}}});
   document.getElementById('histC').innerHTML=`<div class="tc"><div class="tw"><table>
     <thead><tr><th>Mes</th><th>Fondo</th><th>Mon.</th><th>Saldo Inicial</th><th>Aportes</th>
-      <th>Retiros</th><th>Tasa</th><th>Interés</th><th>Saldo Final</th><th></th></tr></thead>
+      <th>Retiros</th><th>Tasa</th><th>Interés</th><th>Saldo Final</th><th>Importado</th><th></th></tr></thead>
     <tbody>${hist.map(r=>`<tr>
       <td style="font-weight:600;color:var(--navy)">${r.mes}</td>
       <td style="font-size:12px">${r.fondo}</td>
@@ -1281,8 +1282,10 @@ function renderHistorial(){
       <td>${r.tasa>0?fP(r.tasa):'—'}</td>
       <td style="color:${r.interes>=0?'var(--emerald)':'var(--red)'}">${r.moneda==='USD'?fU(r.interes):fC(r.interes)}</td>
       <td style="font-weight:700">${r.moneda==='USD'?fU(r.saldo_final):fC(r.saldo_final)}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.fecha_import||'—'}</td>
       <td><button class="btn-del" onclick="deleteHistorial(${r.anio},'${r.mes}','${(r.fondo||'').replace(/'/g,"\\'")}')" title="Eliminar registro">🗑</button></td>
     </tr>`).join('')}</tbody></table></div></div>`;
+  renderHistMovimientos();
 }
 
 async function deleteHistorial(anio, mes, fondo){
@@ -1294,10 +1297,67 @@ async function deleteHistorial(anio, mes, fondo){
   D.historial = D.historial.filter(h=>!(+h.anio===+anio && h.mes===mes && h.fondo===fondo));
   try{
     await saveSection('HISTORIAL',
-      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],
-      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final]));
+      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],
+      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'']));
     renderAll();
   }catch(e){ D.historial = backup; toast('❌ '+e.message, true); }
+}
+
+let movFondoSel = '', movAnioSel = 0;
+function renderHistMovimientos(){
+  const c = document.getElementById('histMov');
+  if(!c) return;
+  const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const fondos = [...new Set(D.historial.map(h=>h.fondo))].sort();
+  const anios = [...new Set(D.historial.map(h=>+h.anio))].sort((a,b)=>b-a);
+  if(!fondos.length || !anios.length){ c.innerHTML=''; return; }
+  if(!fondos.includes(movFondoSel)) movFondoSel = fondos[0];
+  if(!anios.includes(movAnioSel)) movAnioSel = anios[0];
+  const rows = D.historial.filter(h => h.fondo===movFondoSel && +h.anio===movAnioSel);
+  const moneda = rows[0]?.moneda || 'CRC';
+  const fmt = moneda==='USD' ? fU : fC;
+  const tot = {dep:0, ret:0, gan:0};
+  const porMes = MORD.map(m => {
+    const r = rows.find(h => h.mes===m);
+    const dep = +(r?.aportes||0), ret = +(r?.retiros||0), gan = +(r?.interes||0);
+    tot.dep += dep; tot.ret += ret; tot.gan += gan;
+    return {mes:m, dep, ret, gan, has: !!r};
+  });
+  const dash = '<span style="color:var(--muted)">—</span>';
+  c.innerHTML = `
+    <div class="cc">
+      <div class="ct">📊 Movimientos por fondo</div>
+      <div style="display:flex;gap:12px;margin:12px 0 16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Fondo</label>
+          <select onchange="movFondoSel=this.value;renderHistMovimientos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px">
+            ${fondos.map(f=>`<option value="${f}" ${f===movFondoSel?'selected':''}>${f}</option>`).join('')}
+          </select></div>
+        <div style="min-width:120px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Año</label>
+          <select onchange="movAnioSel=+this.value;renderHistMovimientos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px">
+            ${anios.map(a=>`<option value="${a}" ${a===movAnioSel?'selected':''}>${a}</option>`).join('')}
+          </select></div>
+      </div>
+      <div class="kg" style="margin-bottom:16px">
+        <div class="kc"><div class="kl">📥 Depósitos ${movAnioSel}</div><div class="kv" style="color:#065f46">${fmt(tot.dep)}</div></div>
+        <div class="kc"><div class="kl">📤 Retiros ${movAnioSel}</div><div class="kv" style="color:var(--red)">${tot.ret?fmt(tot.ret):'—'}</div></div>
+        <div class="kc"><div class="kl">💰 Ganancias ${movAnioSel}</div><div class="kv" style="color:var(--emerald)">${fmt(tot.gan)}</div></div>
+      </div>
+      <div class="tc"><div class="tw"><table>
+        <thead><tr><th>Mes</th><th>Depósitos</th><th>Retiros</th><th>Ganancias</th></tr></thead>
+        <tbody>${porMes.map(m=>`<tr>
+          <td style="font-weight:600;color:var(--navy)">${m.mes}</td>
+          <td style="color:${m.has&&m.dep>0?'#065f46':'var(--muted)'}">${m.has&&m.dep>0?fmt(m.dep):dash}</td>
+          <td style="color:${m.has&&m.ret>0?'var(--red)':'var(--muted)'}">${m.has&&m.ret>0?fmt(m.ret):dash}</td>
+          <td style="color:${m.has?(m.gan>=0?'var(--emerald)':'var(--red)'):'var(--muted)'}">${m.has?fmt(m.gan):dash}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr style="font-weight:700;background:#f8fafc">
+          <td>TOTAL ${movAnioSel}</td>
+          <td>${fmt(tot.dep)}</td>
+          <td>${tot.ret?fmt(tot.ret):'—'}</td>
+          <td style="color:var(--emerald)">${fmt(tot.gan)}</td>
+        </tr></tfoot>
+      </table></div></div>
+    </div>`;
 }
 
 // CDP
@@ -1744,11 +1804,12 @@ async function saveMov(){
     interes:parseFloat(document.getElementById('mIn').value)||0,
     saldo_final:parseFloat(document.getElementById('mSF').value)||0
   };
+  entry.fecha_import = new Date().toISOString().substring(0,10);
   const idx=D.historial.findIndex(h=>+h.anio===anio&&h.mes===entry.mes&&h.fondo===fondo);
   if(idx>=0) D.historial[idx]=entry; else D.historial.push(entry);
   await saveSection('HISTORIAL',
-    ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],
-    D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final]));
+    ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],
+    D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'']));
   renderAll(); closeMod('mov');
 }
 
@@ -1892,11 +1953,12 @@ async function importPdfRows(){
   if(!toApply.length){ toast('Nada que importar', true); return; }
   // Track del último saldo importado por (fondo, moneda) para propagar a D.fondos
   const ultimoPorFondo = {};
+  const hoy = new Date().toISOString().substring(0,10);
   for(const r of toApply){
     const d = r.data;
     const entry = {anio:d.anio, mes:d.mes, fondo:d.fondo, moneda:d.moneda,
       saldo_inicial:d.saldo_inicial, aportes:d.aportes, retiros:d.retiros,
-      tasa:d.tasa, interes:d.interes, saldo_final:d.saldo_final};
+      tasa:d.tasa, interes:d.interes, saldo_final:d.saldo_final, fecha_import:hoy};
     const idx = D.historial.findIndex(h=>+h.anio===+d.anio&&h.mes===d.mes&&h.fondo===d.fondo);
     if(idx>=0) D.historial[idx] = entry; else D.historial.push(entry);
     const score = d.anio*12 + MESES_ES.indexOf(d.mes);
@@ -1928,8 +1990,8 @@ async function importPdfRows(){
   }
   try{
     await saveSection('HISTORIAL',
-      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],
-      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final]));
+      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],
+      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'']));
     if(propagados){
       await saveSection('FONDOS',
         ['id','nombre','titular','saldo','moneda','tipo','vence'],
