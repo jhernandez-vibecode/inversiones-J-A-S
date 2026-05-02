@@ -1797,12 +1797,17 @@ function parseFondoPDF(text){
   const mes = MESES_ES[parseInt(periodo[2],10)];
   const anio = parseInt(periodo[3],10);
 
-  const nombreM = text.match(/BN\s+([A-Za-zÁÉÍÓÚáéíóúñÑ][^\n]*?)(?:\s*-\s*no\s+diversificado|\n)/i);
-  let nombreRaw = (nombreM?.[1]||'').trim().replace(/\s+/g,' ');
-  let fondo = nombreRaw.toUpperCase();
-  if(/crecifondo/i.test(nombreRaw)) fondo='CRECIFONDO';
-  else if(/superfondo.*d[oó]lares|d[oó]lares\s*plus/i.test(nombreRaw)) fondo='SUPERFONDO DOLARES PLUS';
-  else if(/internacional\s*suma/i.test(nombreRaw)) fondo='BN INTERNACIONAL SUMA';
+  // Detectar fondo por keywords en TODO el texto (más robusto que parsear el header,
+  // que empieza con "BN Sociedad Administradora..." y confunde al regex)
+  let fondo='', nombreRaw='';
+  if(/crecifondo/i.test(text)) { fondo='CRECIFONDO'; nombreRaw='CreciFondo'; }
+  else if(/superfondo.*d[oó]lar|d[oó]lares\s*plus/i.test(text)) { fondo='SUPERFONDO DOLARES PLUS'; nombreRaw='Superfondo Dólares Plus'; }
+  else if(/internacional\s*suma/i.test(text)) { fondo='BN INTERNACIONAL SUMA'; nombreRaw='BN Internacional Suma'; }
+  else {
+    const nombreM = text.match(/BN\s+(?!Sociedad\s+Administradora)([A-Za-zÁÉÍÓÚáéíóúñÑ][^\n]*?)(?:\s*-\s*no\s+diversificado|\n)/i);
+    nombreRaw = (nombreM?.[1]||'').trim().replace(/\s+/g,' ');
+    fondo = nombreRaw.toUpperCase();
+  }
 
   const monM = text.match(/Moneda:\s*([^\n\(]+)/i);
   let moneda='CRC';
@@ -1817,7 +1822,11 @@ function parseFondoPDF(text){
   const interes = num(text.match(/Beneficios:\s*[¢\$]?\s*(-?[\d,\.]+)/i)?.[1]);
   const tasa = parseFloat(text.match(/[ÚU]ltimos\s+12\s+meses:\s*(-?[\d\.]+)\s*%/i)?.[1])||0;
 
-  return {anio, mes, fondo, moneda, saldo_inicial, aportes, retiros, tasa, interes, saldo_final, nombreRaw};
+  // Titular del PDF (para distinguir cuando varios fondos comparten nombre — ej: JC y Alba con "Superfondo Dólares Plus")
+  const titularM = text.match(/Cuenta:\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)\s+(?:C[oó]digo|Subcuenta|\n)/);
+  const titular = (titularM?.[1]||'').trim().replace(/\s+/g,' ');
+
+  return {anio, mes, fondo, moneda, saldo_inicial, aportes, retiros, tasa, interes, saldo_final, nombreRaw, titular};
 }
 
 function renderPdfResults(){
@@ -1851,9 +1860,18 @@ function renderPdfResults(){
   document.getElementById('pdfImportBtn').textContent = `Importar ${actionables} registro${actionables!==1?'s':''}`;
 }
 
+function fondoCanonico(nombre){
+  if(/crecifondo/i.test(nombre)) return 'CRECIFONDO';
+  if(/superfondo.*d[oó]lar|d[oó]lares\s*plus/i.test(nombre)) return 'SUPERFONDO DOLARES PLUS';
+  if(/internacional\s*suma|^bn\s*internacional/i.test(nombre)) return 'BN INTERNACIONAL SUMA';
+  return null;
+}
+
 async function importPdfRows(){
   const toApply = pdfStaged.filter(r=>r.data && r.action!=='skip');
   if(!toApply.length){ toast('Nada que importar', true); return; }
+  // Track del último saldo importado por (fondo, moneda) para propagar a D.fondos
+  const ultimoPorFondo = {};
   for(const r of toApply){
     const d = r.data;
     const entry = {anio:d.anio, mes:d.mes, fondo:d.fondo, moneda:d.moneda,
@@ -1861,12 +1879,43 @@ async function importPdfRows(){
       tasa:d.tasa, interes:d.interes, saldo_final:d.saldo_final};
     const idx = D.historial.findIndex(h=>+h.anio===+d.anio&&h.mes===d.mes&&h.fondo===d.fondo);
     if(idx>=0) D.historial[idx] = entry; else D.historial.push(entry);
+    const score = d.anio*12 + MESES_ES.indexOf(d.mes);
+    const k = d.fondo+'|'+d.moneda+'|'+(d.titular||'');
+    if(!ultimoPorFondo[k] || score > ultimoPorFondo[k].score){
+      ultimoPorFondo[k] = {score, fondo:d.fondo, moneda:d.moneda, saldo:d.saldo_final, titular:d.titular||''};
+    }
+  }
+  // Propagar saldo del último mes importado a la pestaña Fondos.
+  // Si hay >1 fondo con el mismo nombre canónico + moneda (ej: JC y Alba con "Superfondo Dólares Plus"),
+  // desempata por similitud con el titular del PDF.
+  let propagados = 0;
+  for(const info of Object.values(ultimoPorFondo)){
+    const candidatos = D.fondos.filter(x => fondoCanonico(x.nombre)===info.fondo && x.moneda===info.moneda);
+    let f = null;
+    if(candidatos.length === 1) f = candidatos[0];
+    else if(candidatos.length > 1){
+      const tNorm = (info.titular||'').toLowerCase();
+      const tWords = tNorm.split(/\s+/).filter(w=>w.length>=4);
+      f = candidatos.find(c => {
+        const cNorm = (c.titular||'').toLowerCase();
+        return tWords.some(w => cNorm.includes(w));
+      }) || null;
+    }
+    if(f && Math.abs((+f.saldo||0) - info.saldo) > 0.5){
+      f.saldo = info.saldo;
+      propagados++;
+    }
   }
   try{
     await saveSection('HISTORIAL',
       ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final'],
       D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final]));
-    toast('✅ '+toApply.length+' registro(s) importado(s)');
+    if(propagados){
+      await saveSection('FONDOS',
+        ['id','nombre','titular','saldo','moneda','tipo','vence'],
+        D.fondos.map(f=>[f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence]));
+    }
+    toast('✅ '+toApply.length+' registro(s) importado(s)'+(propagados?` · ${propagados} fondo(s) actualizado(s) en pestaña Fondos`:''));
     renderAll(); closeMod('pdf');
   }catch(e){ toast('❌ Error al guardar: '+e.message, true); }
 }
