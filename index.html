@@ -1868,7 +1868,7 @@ function renderPdfResults(){
         <div class="pdf-row-meta">${r.file} · Inicial ${amt(d.saldo_inicial)} → Final ${amt(d.saldo_final)} · Aportes ${amt(d.aportes)} · Retiros ${amt(d.retiros)} · Interés ${amt(d.interes)} · Tasa ${d.tasa}%</div>
         ${r.dup?'<div class="pdf-row-meta" style="color:#92400e;font-weight:600">Ya existe — elegí qué hacer:</div>':''}
       </div>
-      <select onchange="pdfStaged[${i}].action=this.value">
+      <select onchange="pdfStaged[${i}].action=this.value; renderPdfResults();">
         ${r.dup?`<option value="skip" ${r.action==='skip'?'selected':''}>Saltar</option>
                  <option value="replace" ${r.action==='replace'?'selected':''}>Reemplazar</option>`
                :`<option value="add" selected>Agregar</option>
