@@ -1903,10 +1903,14 @@ function initPdfDrop(){
   input.addEventListener('change', e=>handlePdfFiles([...e.target.files]));
 }
 
+const PDF_PAGE_SIZE = 12;
+let pdfPage = 0;
+
 async function handlePdfFiles(files){
   if(!files.length) return;
   if(typeof pdfjsLib==='undefined'){ toast('❌ PDF.js no cargó, recargá la página', true); return; }
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  pdfPage = 0;
   toast('Procesando '+files.length+' PDF(s)…', false);
   for(const f of files){
     try{
@@ -1978,7 +1982,13 @@ function renderPdfResults(){
   const c = document.getElementById('pdfResults');
   if(!pdfStaged.length){ c.innerHTML=''; document.getElementById('pdfImportBtn').style.display='none'; return; }
   const actionables = pdfStaged.filter(r=>r.data && r.action!=='skip').length;
-  c.innerHTML = pdfStaged.map((r,i)=>{
+  const totalPages = Math.max(1, Math.ceil(pdfStaged.length/PDF_PAGE_SIZE));
+  if(pdfPage >= totalPages) pdfPage = totalPages - 1;
+  if(pdfPage < 0) pdfPage = 0;
+  const start = pdfPage * PDF_PAGE_SIZE;
+  const slice = pdfStaged.slice(start, start + PDF_PAGE_SIZE);
+  const rowsHTML = slice.map((r, sliceI)=>{
+    const i = start + sliceI;
     if(r.error){
       return `<div class="pdf-row err"><div class="pdf-row-err">✗</div>
         <div><div style="font-weight:600">${r.file}</div><div class="pdf-row-meta">${r.error}</div></div>
@@ -2001,6 +2011,13 @@ function renderPdfResults(){
       </select>
     </div>`;
   }).join('');
+  const pager = totalPages > 1 ? `
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:14px;padding:10px;background:#f8fafc;border-radius:10px">
+      <button class="btn-secondary" style="padding:6px 14px" onclick="pdfPage--;renderPdfResults()" ${pdfPage===0?'disabled style="opacity:.4;padding:6px 14px"':''}>← Anterior</button>
+      <span style="font-size:13px;color:var(--muted);font-weight:600">Página ${pdfPage+1} de ${totalPages} · ${pdfStaged.length} archivo${pdfStaged.length!==1?'s':''}</span>
+      <button class="btn-secondary" style="padding:6px 14px" onclick="pdfPage++;renderPdfResults()" ${pdfPage>=totalPages-1?'disabled style="opacity:.4;padding:6px 14px"':''}>Siguiente →</button>
+    </div>` : '';
+  c.innerHTML = rowsHTML + pager;
   document.getElementById('pdfImportBtn').style.display = actionables?'inline-block':'none';
   document.getElementById('pdfImportBtn').textContent = `Importar ${actionables} registro${actionables!==1?'s':''}`;
 }
