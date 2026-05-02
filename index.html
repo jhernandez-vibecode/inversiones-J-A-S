@@ -574,11 +574,7 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
         <select class="fi" id="mAnio"><option>2026</option><option>2025</option></select></div>
     </div>
     <div class="fg"><label class="fl">Fondo</label>
-      <select class="fi" id="mFondoSel">
-        <option>CRECIFONDO</option>
-        <option>SUPERFONDO DOLARES PLUS</option>
-        <option>BN INTERNACIONAL SUMA</option>
-      </select></div>
+      <select class="fi" id="mFondoSel"></select></div>
     <div class="fr">
       <div class="fg"><label class="fl">Saldo Inicial</label><input class="fi" type="number" id="mSI" placeholder="0"></div>
       <div class="fg"><label class="fl">Aportes</label><input class="fi" type="number" id="mAp" placeholder="0"></div>
@@ -949,7 +945,7 @@ function defaultPayload(){
     POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
     BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
     CUENTAS:   [['id','titular','banco','moneda','desc'],...DEFAULT.cuentas],
-    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],...DEFAULT.historial],
+    HISTORIAL: [['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],...DEFAULT.historial],
     GASTOS_FIJOS:   [['id','concepto','q1','q2','orden'],...DEFAULT.gastos_fijos],
     PAGOS_QUINCENA: [['anio','mes','gasto_id','quincena'],...DEFAULT.pagos_quincena],
     OCASIONALES:    [['id','anio','mes','concepto','monto','quincena','pagado'],...DEFAULT.ocasionales]
@@ -997,7 +993,7 @@ async function loadFromSheets() {
   try {
     let [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
       shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
-      shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:K'),
+      shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:L'),
       shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
     ]);
     const miss = [];
@@ -1023,7 +1019,7 @@ async function loadFromSheets() {
       }
       [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
         shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
-        shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:K'),
+        shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:L'),
         shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
       ]);
     }
@@ -1255,26 +1251,31 @@ function renderHistorial(){
   const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
   const hist=D.historial.filter(h=>+h.anio===+selYear);
   const meses=[...new Set(hist.map(r=>r.mes))].sort((a,b)=>MORD.indexOf(a)-MORD.indexOf(b));
-  const fondos=['CRECIFONDO','SUPERFONDO DOLARES PLUS','BN INTERNACIONAL SUMA'];
-  const cols={'CRECIFONDO':'#6366f1','SUPERFONDO DOLARES PLUS':'#0ea5e9','BN INTERNACIONAL SUMA':'#10b981'};
+  const palette=['#6366f1','#0ea5e9','#10b981','#f59e0b','#a855f7','#ec4899'];
   if(window._cH) window._cH.destroy();
   window._cH=new Chart(document.getElementById('cHist'),{type:'line',
-    data:{labels:meses.map(m=>m.substring(0,3)),datasets:fondos.map(f=>({
-      label:f,borderColor:cols[f],backgroundColor:cols[f]+'20',tension:.4,fill:false,
-      pointRadius:5,spanGaps:true,data:meses.map(m=>{
-        const r=hist.find(h=>h.mes===m&&h.fondo===f);
-        return r?(r.moneda==='CRC'?r.saldo_final/tc():r.saldo_final):null})
-    }))},
+    data:{labels:meses.map(m=>m.substring(0,3)),datasets:D.fondos.map((f,i)=>{
+      const color=palette[i%palette.length];
+      const tcv=tc();
+      const firstName=(f.titular||'').split(/\s+/)[0]||'';
+      return {label:f.nombre+(firstName?' · '+firstName:''),
+        borderColor:color,backgroundColor:color+'20',tension:.4,fill:false,
+        pointRadius:5,spanGaps:true,data:meses.map(m=>{
+          const r=hist.find(h=>h.mes===m && matchHistorialFondo(h,f));
+          return r?(r.moneda==='CRC'?r.saldo_final/tcv:r.saldo_final):null;
+        })};
+    })},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:12},padding:12}},
         tooltip:{callbacks:{label:ctx=>' '+fU(ctx.parsed.y)}}},
       scales:{y:{ticks:{callback:v=>fU(v)},grid:{color:'#f1f5f9'}},x:{grid:{color:'#f1f5f9'}}}}});
   document.getElementById('histC').innerHTML=`<div class="tc"><div class="tw"><table>
-    <thead><tr><th>Mes</th><th>Fondo</th><th>Mon.</th><th>Saldo Inicial</th><th>Aportes</th>
+    <thead><tr><th>Mes</th><th>Fondo</th><th>Titular</th><th>Mon.</th><th>Saldo Inicial</th><th>Aportes</th>
       <th>Retiros</th><th>Tasa</th><th>Interés</th><th>Saldo Final</th><th>Importado</th><th></th></tr></thead>
     <tbody>${hist.map(r=>`<tr>
       <td style="font-weight:600;color:var(--navy)">${r.mes}</td>
       <td style="font-size:12px">${r.fondo}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.titular||'—'}</td>
       <td><span class="b ${r.moneda==='USD'?'b-blue':'b-purple'}" style="font-size:10px">${r.moneda}</span></td>
       <td>${r.moneda==='USD'?fU(r.saldo_inicial):fC(r.saldo_inicial)}</td>
       <td style="color:${r.aportes>0?'#065f46':'var(--muted)'}">${r.aportes>0?(r.moneda==='USD'?fU(r.aportes):fC(r.aportes)):'—'}</td>
@@ -1283,60 +1284,77 @@ function renderHistorial(){
       <td style="color:${r.interes>=0?'var(--emerald)':'var(--red)'}">${r.moneda==='USD'?fU(r.interes):fC(r.interes)}</td>
       <td style="font-weight:700">${r.moneda==='USD'?fU(r.saldo_final):fC(r.saldo_final)}</td>
       <td style="font-size:11px;color:var(--muted)">${r.fecha_import||'—'}</td>
-      <td><button class="btn-del" onclick="deleteHistorial(${r.anio},'${r.mes}','${(r.fondo||'').replace(/'/g,"\\'")}')" title="Eliminar registro">🗑</button></td>
+      <td><button class="btn-del" onclick="deleteHistorial(${r.anio},'${r.mes}','${(r.fondo||'').replace(/'/g,"\\'")}','${(r.titular||'').replace(/'/g,"\\'")}')" title="Eliminar registro">🗑</button></td>
     </tr>`).join('')}</tbody></table></div></div>`;
   renderHistMovimientos();
 }
 
-async function deleteHistorial(anio, mes, fondo){
-  const r = D.historial.find(h=>+h.anio===+anio && h.mes===mes && h.fondo===fondo);
+async function deleteHistorial(anio, mes, fondo, titular){
+  const t = titular||'';
+  const r = D.historial.find(h=>+h.anio===+anio && h.mes===mes && h.fondo===fondo && (h.titular||'')===t);
   if(!r) return;
   const saldoFmt = r.moneda==='USD'?fU(r.saldo_final):fC(r.saldo_final);
-  if(!confirm(`¿Eliminar registro de ${fondo} · ${mes} ${anio}?\nSaldo final: ${saldoFmt}\n\nEsta acción no se puede deshacer.`)) return;
+  const tLabel = t?` (${t})`:'';
+  if(!confirm(`¿Eliminar registro de ${fondo}${tLabel} · ${mes} ${anio}?\nSaldo final: ${saldoFmt}\n\nEsta acción no se puede deshacer.`)) return;
   const backup = [...D.historial];
-  D.historial = D.historial.filter(h=>!(+h.anio===+anio && h.mes===mes && h.fondo===fondo));
+  D.historial = D.historial.filter(h=>!(+h.anio===+anio && h.mes===mes && h.fondo===fondo && (h.titular||'')===t));
   try{
     await saveSection('HISTORIAL',
-      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],
-      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'']));
+      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],
+      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'',h.titular||'']));
     renderAll();
   }catch(e){ D.historial = backup; toast('❌ '+e.message, true); }
 }
 
-let movFondoSel = '', movAnioSel = 0;
+let movFondoIdSel = '', movAnioSel = 0;
+function matchHistorialFondo(h, f){
+  // Match historial entry h con D.fondo f (canónico + moneda + titular)
+  const canonico = fondoCanonico(f.nombre) || f.nombre.toUpperCase();
+  if(h.fondo !== canonico) return false;
+  if(h.moneda !== f.moneda) return false;
+  // Titular: si historial tiene titular, comparar por palabras; si no, asume match (compat retro)
+  if(!h.titular) return true;
+  const fT = (f.titular||'').toLowerCase();
+  const hT = h.titular.toLowerCase();
+  const fWords = fT.split(/\s+/).filter(w=>w.length>=4);
+  return fWords.some(w => hT.includes(w));
+}
 function renderHistMovimientos(){
   const c = document.getElementById('histMov');
   if(!c) return;
   const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-  const fondos = [...new Set(D.historial.map(h=>h.fondo))].sort();
-  const anios = [...new Set(D.historial.map(h=>+h.anio))].sort((a,b)=>b-a);
-  if(!fondos.length || !anios.length){ c.innerHTML=''; return; }
-  if(!fondos.includes(movFondoSel)) movFondoSel = fondos[0];
-  if(!anios.includes(movAnioSel)) movAnioSel = anios[0];
-  const rows = D.historial.filter(h => h.fondo===movFondoSel && +h.anio===movAnioSel);
-  const moneda = rows[0]?.moneda || 'CRC';
-  const fmt = moneda==='USD' ? fU : fC;
+  if(!D.fondos.length){ c.innerHTML=''; return; }
+  if(!D.fondos.find(f=>f.id===movFondoIdSel)) movFondoIdSel = D.fondos[0].id;
+  const fondoSel = D.fondos.find(f=>f.id===movFondoIdSel);
+  const matchingRows = D.historial.filter(h => matchHistorialFondo(h, fondoSel));
+  const anios = [...new Set(matchingRows.map(h=>+h.anio))].sort((a,b)=>b-a);
+  if(anios.length && !anios.includes(movAnioSel)) movAnioSel = anios[0];
+  if(!anios.length) movAnioSel = 0;
+  const yearRows = matchingRows.filter(h => +h.anio === movAnioSel);
+  const fmt = fondoSel.moneda==='USD' ? fU : fC;
   const tot = {dep:0, ret:0, gan:0};
   const porMes = MORD.map(m => {
-    const r = rows.find(h => h.mes===m);
+    const r = yearRows.find(h => h.mes===m);
     const dep = +(r?.aportes||0), ret = +(r?.retiros||0), gan = +(r?.interes||0);
     tot.dep += dep; tot.ret += ret; tot.gan += gan;
     return {mes:m, dep, ret, gan, has: !!r};
   });
   const dash = '<span style="color:var(--muted)">—</span>';
+  const sinDatos = !yearRows.length;
   c.innerHTML = `
     <div class="cc">
       <div class="ct">📊 Movimientos por fondo</div>
       <div style="display:flex;gap:12px;margin:12px 0 16px;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Fondo</label>
-          <select onchange="movFondoSel=this.value;renderHistMovimientos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px">
-            ${fondos.map(f=>`<option value="${f}" ${f===movFondoSel?'selected':''}>${f}</option>`).join('')}
+        <div style="flex:1;min-width:240px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Fondo</label>
+          <select onchange="movFondoIdSel=this.value;renderHistMovimientos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px">
+            ${D.fondos.map(f=>`<option value="${f.id}" ${f.id===movFondoIdSel?'selected':''}>${f.nombre} · ${f.titular} · ${f.moneda}</option>`).join('')}
           </select></div>
-        <div style="min-width:120px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Año</label>
-          <select onchange="movAnioSel=+this.value;renderHistMovimientos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px">
-            ${anios.map(a=>`<option value="${a}" ${a===movAnioSel?'selected':''}>${a}</option>`).join('')}
+        <div style="min-width:140px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Año</label>
+          <select onchange="movAnioSel=+this.value;renderHistMovimientos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px" ${anios.length?'':'disabled'}>
+            ${anios.length?anios.map(a=>`<option value="${a}" ${a===movAnioSel?'selected':''}>${a}</option>`).join(''):'<option>—</option>'}
           </select></div>
       </div>
+      ${sinDatos?`<div style="text-align:center;color:var(--muted);padding:32px;background:#f8fafc;border-radius:12px">📭 Sin movimientos registrados para <strong>${fondoSel.nombre}</strong>${fondoSel.titular?' ('+fondoSel.titular+')':''}.<br><span style="font-size:12px">Importá un PDF o registrá un mes manualmente.</span></div>`:`
       <div class="kg" style="margin-bottom:16px">
         <div class="kc"><div class="kl">📥 Depósitos ${movAnioSel}</div><div class="kv" style="color:#065f46">${fmt(tot.dep)}</div></div>
         <div class="kc"><div class="kl">📤 Retiros ${movAnioSel}</div><div class="kv" style="color:var(--red)">${tot.ret?fmt(tot.ret):'—'}</div></div>
@@ -1356,7 +1374,7 @@ function renderHistMovimientos(){
           <td>${tot.ret?fmt(tot.ret):'—'}</td>
           <td style="color:var(--emerald)">${fmt(tot.gan)}</td>
         </tr></tfoot>
-      </table></div></div>
+      </table></div></div>`}
     </div>`;
 }
 
@@ -1470,6 +1488,7 @@ function openMod(k){
   if(k==='addCuenta') prepareAddCuenta();
   if(k==='addOcasional') prepareAddOcasional();
   if(k==='editGastos') buildEditGastosForm();
+  if(k==='mov') prepareAddMov();
   document.getElementById(MOD_MAP[k]).classList.add('open');
 }
 function closeMod(k){document.getElementById(MOD_MAP[k]).classList.remove('open');}
@@ -1792,24 +1811,36 @@ async function delCuenta(id){
   }catch(e){ D.cuentas=backup; toast('❌ '+e.message,true); }
 }
 
+function prepareAddMov(){
+  const sel = document.getElementById('mFondoSel');
+  if(!sel) return;
+  sel.innerHTML = D.fondos.map(f =>
+    `<option value="${f.id}">${f.nombre} · ${f.titular} · ${f.moneda}</option>`
+  ).join('');
+}
+
 async function saveMov(){
   const anio=+document.getElementById('mAnio').value;
-  const fondo=document.getElementById('mFondoSel').value;
+  const fondoId=document.getElementById('mFondoSel').value;
+  const f = D.fondos.find(x=>x.id===fondoId);
+  if(!f){ toast('❌ Seleccioná un fondo válido', true); return; }
+  const fondo = fondoCanonico(f.nombre) || f.nombre.toUpperCase();
   const entry={anio,mes:document.getElementById('mMes').value,fondo,
-    moneda:fondo==='CRECIFONDO'?'CRC':'USD',
+    moneda:f.moneda,
     saldo_inicial:parseFloat(document.getElementById('mSI').value)||0,
     aportes:parseFloat(document.getElementById('mAp').value)||0,
     retiros:parseFloat(document.getElementById('mRe').value)||0,
     tasa:parseFloat(document.getElementById('mTa').value)||0,
     interes:parseFloat(document.getElementById('mIn').value)||0,
-    saldo_final:parseFloat(document.getElementById('mSF').value)||0
+    saldo_final:parseFloat(document.getElementById('mSF').value)||0,
+    titular: f.titular||''
   };
   entry.fecha_import = new Date().toISOString().substring(0,10);
-  const idx=D.historial.findIndex(h=>+h.anio===anio&&h.mes===entry.mes&&h.fondo===fondo);
+  const idx=D.historial.findIndex(h=>+h.anio===anio&&h.mes===entry.mes&&h.fondo===fondo&&(h.titular||'')===(entry.titular||''));
   if(idx>=0) D.historial[idx]=entry; else D.historial.push(entry);
   await saveSection('HISTORIAL',
-    ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],
-    D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'']));
+    ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],
+    D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'',h.titular||'']));
   renderAll(); closeMod('mov');
 }
 
@@ -1849,7 +1880,7 @@ async function handlePdfFiles(files){
       const text = await extractPdfText(f);
       const data = parseFondoPDF(text);
       if(!data) { pdfStaged.push({file:f.name, error:'No se reconoció el formato del PDF'}); continue; }
-      const dup = D.historial.find(h=>+h.anio===+data.anio&&h.mes===data.mes&&h.fondo===data.fondo);
+      const dup = D.historial.find(h=>+h.anio===+data.anio&&h.mes===data.mes&&h.fondo===data.fondo&&(h.titular||'')===(data.titular||''));
       pdfStaged.push({file:f.name, data, dup:!!dup, action: dup?'skip':'add'});
     }catch(e){
       console.error('[pdf]', f.name, e);
@@ -1958,8 +1989,8 @@ async function importPdfRows(){
     const d = r.data;
     const entry = {anio:d.anio, mes:d.mes, fondo:d.fondo, moneda:d.moneda,
       saldo_inicial:d.saldo_inicial, aportes:d.aportes, retiros:d.retiros,
-      tasa:d.tasa, interes:d.interes, saldo_final:d.saldo_final, fecha_import:hoy};
-    const idx = D.historial.findIndex(h=>+h.anio===+d.anio&&h.mes===d.mes&&h.fondo===d.fondo);
+      tasa:d.tasa, interes:d.interes, saldo_final:d.saldo_final, fecha_import:hoy, titular:d.titular||''};
+    const idx = D.historial.findIndex(h=>+h.anio===+d.anio&&h.mes===d.mes&&h.fondo===d.fondo&&(h.titular||'')===(d.titular||''));
     if(idx>=0) D.historial[idx] = entry; else D.historial.push(entry);
     const score = d.anio*12 + MESES_ES.indexOf(d.mes);
     const k = d.fondo+'|'+d.moneda+'|'+(d.titular||'');
@@ -1990,8 +2021,8 @@ async function importPdfRows(){
   }
   try{
     await saveSection('HISTORIAL',
-      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import'],
-      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'']));
+      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],
+      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'',h.titular||'']));
     if(propagados){
       await saveSection('FONDOS',
         ['id','nombre','titular','saldo','moneda','tipo','vence'],
