@@ -1312,8 +1312,15 @@ function matchHistorialFondo(h, f){
   const canonico = fondoCanonico(f.nombre) || f.nombre.toUpperCase();
   if(h.fondo !== canonico) return false;
   if(h.moneda !== f.moneda) return false;
-  // Titular: si historial tiene titular, comparar por palabras; si no, asume match (compat retro)
-  if(!h.titular) return true;
+  // Sin titular en historial: asignar solo al PRIMER fondo de D.fondos con mismo canónico+moneda
+  // (evita duplicar líneas en el gráfico cuando JC y Alba comparten nombre canónico)
+  if(!h.titular){
+    const primero = D.fondos.find(x =>
+      (fondoCanonico(x.nombre)||x.nombre.toUpperCase())===canonico && x.moneda===f.moneda
+    );
+    return !!primero && primero.id===f.id;
+  }
+  // Con titular: comparar por palabras
   const fT = (f.titular||'').toLowerCase();
   const hT = h.titular.toLowerCase();
   const fWords = fT.split(/\s+/).filter(w=>w.length>=4);
@@ -1354,12 +1361,13 @@ function renderHistMovimientos(){
             ${anios.length?anios.map(a=>`<option value="${a}" ${a===movAnioSel?'selected':''}>${a}</option>`).join(''):'<option>—</option>'}
           </select></div>
       </div>
-      ${sinDatos?`<div style="text-align:center;color:var(--muted);padding:32px;background:#f8fafc;border-radius:12px">📭 Sin movimientos registrados para <strong>${fondoSel.nombre}</strong>${fondoSel.titular?' ('+fondoSel.titular+')':''}.<br><span style="font-size:12px">Importá un PDF o registrá un mes manualmente.</span></div>`:`
       <div class="kg" style="margin-bottom:16px">
-        <div class="kc"><div class="kl">📥 Depósitos ${movAnioSel}</div><div class="kv" style="color:#065f46">${fmt(tot.dep)}</div></div>
-        <div class="kc"><div class="kl">📤 Retiros ${movAnioSel}</div><div class="kv" style="color:var(--red)">${tot.ret?fmt(tot.ret):'—'}</div></div>
-        <div class="kc"><div class="kl">💰 Ganancias ${movAnioSel}</div><div class="kv" style="color:var(--emerald)">${fmt(tot.gan)}</div></div>
+        <div class="kc"><div class="kl">💼 Saldo actual</div><div class="kv" style="color:var(--navy)">${fmt(+fondoSel.saldo||0)}</div><div class="ks">${fondoSel.moneda==='CRC'?fU((+fondoSel.saldo||0)/tc())+' equiv.':''}</div></div>
+        <div class="kc"><div class="kl">📥 Depósitos ${movAnioSel||''}</div><div class="kv" style="color:#065f46">${sinDatos?'—':fmt(tot.dep)}</div></div>
+        <div class="kc"><div class="kl">📤 Retiros ${movAnioSel||''}</div><div class="kv" style="color:var(--red)">${sinDatos?'—':(tot.ret?fmt(tot.ret):'—')}</div></div>
+        <div class="kc"><div class="kl">💰 Ganancias ${movAnioSel||''}</div><div class="kv" style="color:var(--emerald)">${sinDatos?'—':fmt(tot.gan)}</div></div>
       </div>
+      ${sinDatos?`<div style="text-align:center;color:var(--muted);padding:24px;background:#f8fafc;border-radius:12px">📭 Sin movimientos registrados para <strong>${fondoSel.nombre}</strong>${fondoSel.titular?' ('+fondoSel.titular+')':''}.<br><span style="font-size:12px">Importá un PDF o registrá un mes manualmente.</span></div>`:`
       <div class="tc"><div class="tw"><table>
         <thead><tr><th>Mes</th><th>Depósitos</th><th>Retiros</th><th>Ganancias</th></tr></thead>
         <tbody>${porMes.map(m=>`<tr>
