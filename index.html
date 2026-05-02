@@ -868,6 +868,8 @@ let ACCESS_TOKEN = '';
 let SHEET_ID     = localStorage.getItem(LS_SID)||'';
 let D            = null;
 let selYear      = '2026';
+let histPage     = 0;
+const HIST_PAGE_SIZE = 12;
 
 // ─── FORMAT ──────────────────────────────────────────────────────
 const fU = v=>'$'+(+v).toLocaleString('es-CR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1292,10 +1294,23 @@ function renderHistorial(){
       plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:12},padding:12}},
         tooltip:{callbacks:{label:ctx=>' '+fU(ctx.parsed.y)}}},
       scales:{y:{ticks:{callback:v=>fU(v)},grid:{color:'#f1f5f9'}},x:{grid:{color:'#f1f5f9'}}}}});
+  // Orden DESC por mes (más recientes arriba) + paginación 12 por página
+  const histSorted = [...hist].sort((a,b)=>MORD.indexOf(b.mes)-MORD.indexOf(a.mes));
+  const totalPagesH = Math.max(1, Math.ceil(histSorted.length / HIST_PAGE_SIZE));
+  if(histPage >= totalPagesH) histPage = totalPagesH - 1;
+  if(histPage < 0) histPage = 0;
+  const startH = histPage * HIST_PAGE_SIZE;
+  const histSlice = histSorted.slice(startH, startH + HIST_PAGE_SIZE);
+  const pagerH = totalPagesH > 1 ? `
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:14px;padding:10px;background:#f8fafc;border-radius:10px">
+      <button class="btn-secondary" style="padding:6px 14px${histPage===0?';opacity:.4':''}" onclick="histPage--;renderHistorial()" ${histPage===0?'disabled':''}>← Anterior</button>
+      <span style="font-size:13px;color:var(--muted);font-weight:600">Página ${histPage+1} de ${totalPagesH} · ${histSorted.length} registros</span>
+      <button class="btn-secondary" style="padding:6px 14px${histPage>=totalPagesH-1?';opacity:.4':''}" onclick="histPage++;renderHistorial()" ${histPage>=totalPagesH-1?'disabled':''}>Siguiente →</button>
+    </div>` : '';
   document.getElementById('histC').innerHTML=`<div class="tc"><div class="tw"><table>
     <thead><tr><th>Mes</th><th>Fondo</th><th>Titular</th><th>Mon.</th><th>Saldo Inicial</th><th>Aportes</th>
       <th>Retiros</th><th>Tasa</th><th>Interés</th><th>Saldo Final</th><th>Importado</th><th></th></tr></thead>
-    <tbody>${hist.map(r=>`<tr>
+    <tbody>${histSlice.map(r=>`<tr>
       <td style="font-weight:600;color:var(--navy)">${r.mes}</td>
       <td style="font-size:12px">${r.fondo}</td>
       <td style="font-size:11px;color:var(--muted)">${r.titular||'—'}</td>
@@ -1308,7 +1323,7 @@ function renderHistorial(){
       <td style="font-weight:700">${r.moneda==='USD'?fU(r.saldo_final):fC(r.saldo_final)}</td>
       <td style="font-size:11px;color:var(--muted)">${r.fecha_import||'—'}</td>
       <td><button class="btn-del" onclick="deleteHistorial(${r.anio},'${r.mes}','${(r.fondo||'').replace(/'/g,"\\'")}','${(r.titular||'').replace(/'/g,"\\'")}')" title="Eliminar registro">🗑</button></td>
-    </tr>`).join('')}</tbody></table></div></div>`;
+    </tr>`).join('')}</tbody></table></div></div>${pagerH}`;
   renderHistMovimientos();
 }
 
@@ -2380,7 +2395,7 @@ document.querySelectorAll('.nav-tab').forEach(t=>t.addEventListener('click',()=>
 }));
 document.querySelectorAll('.yr').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.yr').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active'); selYear=b.dataset.year; renderHistorial();
+  b.classList.add('active'); selYear=b.dataset.year; histPage=0; renderHistorial();
 }));
 
 // ─── TOAST ───────────────────────────────────────────────────────
