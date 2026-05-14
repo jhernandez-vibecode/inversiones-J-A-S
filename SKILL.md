@@ -7,22 +7,22 @@ description: ESPECIALISTA EN INVERSIONES J-A-S — App web personal de Juan Carl
 
 Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin perder contexto.
 
-## Checkpoint 2 may 2026 (v1.2 — multi-titular en historial + filtros)
+## Checkpoint 14 may 2026 (v1.3 — ranking de rendimiento en Fondos)
 
 ### Estado del proyecto
 - **Producción:** Netlify (URL `*.netlify.app` — JC tiene la URL exacta) — auto-deploy desde `main`
 - **Repo:** https://github.com/jhernandez-vibecode/inversiones-J-A-S
 - **Local:** `C:\Users\segur\Documents\GitHub\inversiones-J-A-S\`
 - **Rama activa:** `main`
-- **Último commit (código):** `344a2ac` — fix: gráficos Dashboard e Historial muestran las 4 series siempre
+- **Último commit (código):** v1.3 ranking de rendimiento (ver tabla de versionado abajo)
 - **OAuth Client ID** (Google Cloud): `446215450096-i2s3glor63qodpf3t12ogdgunedqgp27.apps.googleusercontent.com`
-- **Tamaño actual:** ~2370 líneas index.html
+- **Tamaño actual:** ~2566 líneas index.html
 
 ### Qué está en producción
 
 **8 pestañas funcionales:**
 1. **📊 Dashboard** — KPIs del portafolio (Fondos USD/CRC, CDP, Bienes, Patrimonio total) + donut distribución + gráfico evolución mensual de los 4 fondos + tabla de todos los activos
-2. **📈 Fondos** — Saldos actuales (4 fondos: Superfondo Dólares Plus JC, BN Internacional SUMA Alba, Crecifondo Colones JC, Superfondo Colones Alba) + alta/edita/baja + **edición del nombre desde Editar Fondos** (v1.2) + tipo de cambio editable
+2. **📈 Fondos** — Saldos actuales (4 fondos: Superfondo Dólares Plus JC, BN Internacional SUMA Alba, Crecifondo Colones JC, Superfondo Colones Alba) + alta/edita/baja + **edición del nombre desde Editar Fondos** (v1.2) + tipo de cambio editable + **🏆 Ranking de Rendimiento** (v1.3) con toggle métrica (tasa % / ganancias USD) + período (mes / año) + selectores año/mes
 3. **📅 Historial** — Mensual por fondo (saldo inicial, aportes, retiros, tasa, intereses, saldo final, **titular**, **fecha import**) · selector de año · gráfico evolución de las 4 series · **importador PDF de estados de cuenta BN** (CreciFondo, Superfondo Dólares Plus, BN Internacional Suma) · **botón eliminar registros** · **panel "Movimientos por fondo"** abajo con filtro fondo/año + KPIs Saldo/Depósitos/Retiros/Ganancias + tabla mensual
 4. **🏦 CDP** — Certificados de depósito (Marchamos, Adelantos Renta) + estado vigente/aplicado + filtros + abogado: Federico Altamura (8836-4617)
 5. **🛡️ Pólizas** — Vida INS (Universal Dólares JC + Alba, ANDAS, Medical) + Pensión BN Vital
@@ -33,7 +33,7 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 ---
 
 ## Stack técnico
-- HTML + Vanilla JS (single-file, ~2370 líneas)
+- HTML + Vanilla JS (single-file, ~2566 líneas)
 - Outfit (Google Fonts) — toda la tipografía
 - Chart.js v4.4 (donut + line)
 - SheetJS v0.18 (export Excel `.xlsx`)
@@ -47,7 +47,7 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 
 ```
 inversiones-J-A-S/
-├── index.html                       # App completa SPA (~2370 líneas tras v1.2)
+├── index.html                       # App completa SPA (~2566 líneas tras v1.3)
 ├── README.md                        # Descripción breve del proyecto
 ├── SKILL.md                         # Este archivo (sync con ~/.claude/skills/.../SKILL.md)
 └── mockup-gastos-fijos.html         # Mockup intermedio v1.1 (untracked, se puede borrar)
@@ -145,6 +145,8 @@ Se crea automáticamente en el primer login de cada usuario. ID guardado en `loc
 - `renderFondos()`, `renderCDP()`, `renderPolizas()`, `renderBienes()`, `renderCuentas()`, `renderGastos()`
 - `renderHistorial()` — gráfico 4 series + tabla con columnas titular/fecha_import + botón eliminar; al final llama `renderHistMovimientos()`
 - `renderHistMovimientos()` *(v1.2)* — panel filtro fondo/año + 4 KPIs (saldo, dep, ret, gan) + tabla mensual
+- `renderRankingFondos()` *(v1.3)* — card en pestaña Fondos: ranking ordenado DESC con medallas 🥇🥈🥉. Toggle métrica `tasa`/`interes` + período `mes`/`anio` + selectores año/mes dinámicos (solo se ofrecen los que tienen datos en HISTORIAL). Para ganancias convierte cada fila con `toUSD()`. Para tasa anual usa rendimiento compuesto `∏(1+t/100)-1`. Si ningún fondo tiene datos en el período, muestra empty state.
+- `setRankMetric(m)` / `setRankPeriodo(p)` *(v1.3)* — cambian state global y re-renderizan solo el ranking
 
 ### Multi-titular *(v1.2)*
 - `fondoCanonico(nombre)` — devuelve 'CRECIFONDO' / 'SUPERFONDO DOLARES PLUS' / 'BN INTERNACIONAL SUMA' o null
@@ -181,6 +183,7 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 | **v1.0** | (previo) | 7 pestañas: Dashboard, Fondos, Historial, CDP, Pólizas, Bienes, Cuentas · Auth Gmail · Sheets API · gráficos · export Excel · importer PDF de BN |
 | **v1.1** | 28 abr 2026 | **Pestaña Gastos Fijos** — 19 gastos seed · KPIs total/Q1/Q2/% pagado · toggle pagado interactivo · histórico mensual · pagos ocasionales · modal editar · 3 hojas nuevas. Commit `dcce5ab` |
 | **v1.2** | 2 may 2026 | **Multi-titular en HISTORIAL + Filtros + UX fixes**. Hilo completo: <br>• `fix: parser PDF reconoce fondo correctamente y propaga saldo a pestaña Fondos` (`5f2eded`) — antes capturaba "BN Sociedad Administradora..." como nombre del fondo<br>• `feat: editar nombre de fondos + botón eliminar registros del historial` (`bc1c2f6`)<br>• `fix: dropdown Reemplazar/Saltar en importar PDF re-renderiza para mostrar el botón Importar` (`7383206`)<br>• `feat: fecha de import en historial + filtro de movimientos por fondo` (`bbe3e00`)<br>• `feat: HISTORIAL distingue JC vs Alba por titular en fondos compartidos` (`9f2fa3e`)<br>• `fix: filtro Movimientos muestra saldo actual del fondo + arregla duplicación de líneas` (`450fe76`)<br>• `fix: gráficos Dashboard e Historial muestran las 4 series siempre` (`344a2ac`) |
+| **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card debajo de la tabla de fondos: <br>• Toggle **métrica**: 📈 Por tasa % / 💰 Por ganancias (USD equiv.)<br>• Toggle **período**: 📅 Por mes / 🗓️ Por año<br>• Selectores **año** + **mes** dinámicos (sólo opciones con datos en HISTORIAL)<br>• Ranking ordenado DESC con medallas 🥇🥈🥉 + posición #N<br>• Empty state cuando HISTORIAL está vacío o el período no tiene datos<br>• Tasa anual = compuesto ∏(1+t/100)−1, no suma simple<br>• Ganancias convierten cada fila con `toUSD()` según moneda del fondo<br>• Reutiliza `matchHistorialFondo()` para resolver el mapeo histórico→fondo (respeta multi-titular v1.2) |
 
 ## Reglas de desarrollo
 

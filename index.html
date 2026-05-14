@@ -396,6 +396,7 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
           <button class="btn btn-outline" onclick="openMod('fondos')">✏️ Editar</button>
         </div></div>
       <div id="fondosC"></div>
+      <div id="rankFondosC" style="margin-top:24px"></div>
     </div>
     <div class="section" id="tab-historial">
       <div class="sh"><div><div class="st">Historial Mensual</div>
@@ -1261,7 +1262,151 @@ function renderFondos(){
         <td class="ausd">${fU(toUSD(f.saldo,f.moneda))}</td>
         <td>${f.tipo}</td><td style="font-size:12px;color:var(--muted)">${f.vence}</td>
       </tr>`).join('')}</tbody></table></div></div>`;
+  renderRankingFondos();
 }
+
+// RANKING DE RENDIMIENTO (pestaña Fondos)
+function renderRankingFondos(){
+  const c = document.getElementById('rankFondosC');
+  if(!c) return;
+  if(!D || !D.fondos.length){ c.innerHTML=''; return; }
+
+  const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const cap = s => s ? s.charAt(0)+s.slice(1).toLowerCase() : s;
+
+  // Años con datos en HISTORIAL (DESC)
+  const anios = [...new Set(D.historial.map(h=>+h.anio))].filter(a=>a>0).sort((a,b)=>b-a);
+  if(!anios.length){
+    c.innerHTML = `<div class="cc">
+      <div class="ct">🏆 Ranking de Rendimiento</div>
+      <div style="text-align:center;color:var(--muted);padding:28px;background:#f8fafc;border-radius:12px;margin-top:12px">
+        📭 Sin movimientos registrados en HISTORIAL todavía.<br>
+        <span style="font-size:12px">Importá un PDF del estado de cuenta o registrá un mes manualmente para empezar a comparar.</span>
+      </div></div>`;
+    return;
+  }
+  if(!anios.includes(rankAnio)) rankAnio = anios[0];
+
+  // Meses con datos del año seleccionado
+  const mesesYr = [...new Set(D.historial.filter(h=>+h.anio===rankAnio).map(h=>h.mes))]
+    .filter(m => MORD.includes(m))
+    .sort((a,b)=>MORD.indexOf(a)-MORD.indexOf(b));
+  if(!mesesYr.includes(rankMes)) rankMes = mesesYr[mesesYr.length-1] || 'ENERO';
+
+  const isTasa = rankMetric==='tasa';
+  const isMes  = rankPeriodo==='mes';
+  const tcv    = tc();
+
+  // Calcular métrica por cada fondo
+  const ranking = D.fondos.map(f => {
+    const rows = isMes
+      ? D.historial.filter(h => h.mes===rankMes && +h.anio===rankAnio && matchHistorialFondo(h,f))
+      : D.historial.filter(h => +h.anio===rankAnio && matchHistorialFondo(h,f));
+
+    let valor = null;
+    if(rows.length){
+      if(isTasa){
+        if(isMes){
+          valor = +rows[0].tasa || 0;
+        } else {
+          // Rendimiento compuesto del año: ∏(1 + ti/100) - 1, en %
+          let factor = 1;
+          rows.forEach(r => { factor *= (1 + (+r.tasa||0)/100); });
+          valor = (factor - 1) * 100;
+        }
+      } else {
+        // Ganancias en USD (convierte cada fila según su moneda)
+        valor = rows.reduce((s,r) => s + toUSD(+r.interes||0, r.moneda), 0);
+      }
+    }
+    return {fondo:f, valor, nMeses:rows.length, hasData:rows.length>0};
+  });
+
+  // Orden DESC (sin datos al final)
+  ranking.sort((a,b)=>{
+    if(a.valor===null && b.valor===null) return 0;
+    if(a.valor===null) return 1;
+    if(b.valor===null) return -1;
+    return b.valor - a.valor;
+  });
+
+  const conDatos = ranking.filter(r=>r.hasData).length;
+  const medalla = (i,r) => !r.hasData ? '—' : (i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`);
+
+  const fmtValor = r => {
+    if(r.valor===null) return '<span style="color:var(--muted);font-size:13px">Sin datos</span>';
+    const positivo = r.valor>=0;
+    const sign  = positivo ? '+' : '';
+    const color = positivo ? 'var(--emerald)' : 'var(--red)';
+    let main;
+    if(isTasa){
+      main = `${sign}${r.valor.toFixed(2)}%`;
+    } else {
+      main = (positivo?'+':'-') + fU(Math.abs(r.valor));
+    }
+    const detail = !isMes && r.nMeses
+      ? `<div style="font-size:11px;color:var(--muted);font-weight:500;margin-top:2px">${r.nMeses} mes${r.nMeses===1?'':'es'}${isTasa?' · compuesto':''}</div>`
+      : '';
+    return `<div style="font-size:18px;font-weight:800;color:${color}">${main}</div>${detail}`;
+  };
+
+  const perLabel = isMes ? `${cap(rankMes)} ${rankAnio}` : `Año ${rankAnio}`;
+  const metricLabel = isTasa ? 'Por tasa %' : 'Por ganancias (equiv. USD)';
+
+  c.innerHTML = `
+    <div class="cc">
+      <div class="ct">🏆 Ranking de Rendimiento
+        <span style="font-size:13px;font-weight:500;color:var(--muted)">· ${metricLabel} · ${perLabel}</span></div>
+
+      <div class="yr-row" style="margin:14px 0 10px">
+        <button class="yr ${isTasa?'active':''}" onclick="setRankMetric('tasa')">📈 Por tasa %</button>
+        <button class="yr ${!isTasa?'active':''}" onclick="setRankMetric('interes')">💰 Por ganancias</button>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+        <div style="display:flex;gap:8px">
+          <button class="yr ${isMes?'active':''}" onclick="setRankPeriodo('mes')">📅 Por mes</button>
+          <button class="yr ${!isMes?'active':''}" onclick="setRankPeriodo('anio')">🗓️ Por año</button>
+        </div>
+        <div style="min-width:130px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Año</label>
+          <select onchange="rankAnio=+this.value;renderRankingFondos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px">
+            ${anios.map(a=>`<option value="${a}" ${a===rankAnio?'selected':''}>${a}</option>`).join('')}
+          </select></div>
+        ${isMes?`<div style="min-width:170px"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Mes</label>
+          <select onchange="rankMes=this.value;renderRankingFondos()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;margin-top:4px" ${mesesYr.length?'':'disabled'}>
+            ${mesesYr.length?mesesYr.map(m=>`<option value="${m}" ${m===rankMes?'selected':''}>${cap(m)}</option>`).join(''):'<option>—</option>'}
+          </select></div>`:''}
+      </div>
+
+      ${conDatos===0?`
+        <div style="text-align:center;color:var(--muted);padding:24px;background:#f8fafc;border-radius:12px">
+          📭 Ningún fondo tiene movimientos en <strong>${perLabel}</strong>.<br>
+          <span style="font-size:12px">Probá con otro mes o año.</span>
+        </div>`:`
+        <div class="tc"><div class="tw"><table>
+          <thead><tr>
+            <th style="width:70px;text-align:center">Pos.</th>
+            <th>Fondo</th>
+            <th>Titular</th>
+            <th style="width:80px">Moneda</th>
+            <th style="text-align:right">${isTasa?'Rendimiento':'Ganancia'}</th>
+          </tr></thead>
+          <tbody>${ranking.map((r,i)=>`<tr>
+            <td style="font-size:22px;text-align:center;font-weight:800;line-height:1">${medalla(i,r)}</td>
+            <td style="font-weight:700">${r.fondo.nombre}</td>
+            <td style="font-size:12px;color:var(--muted)">${r.fondo.titular||'—'}</td>
+            <td><span class="b ${r.fondo.moneda==='USD'?'b-blue':'b-purple'}">${r.fondo.moneda}</span></td>
+            <td style="text-align:right">${fmtValor(r)}</td>
+          </tr>`).join('')}</tbody>
+        </table></div></div>`}
+
+      ${!isTasa && conDatos>0?`<div style="font-size:11px;color:var(--muted);margin-top:10px;padding:8px 12px;background:#f8fafc;border-radius:8px">💡 Las ganancias se convierten a USD usando el T.C. actual (₡${tcv}) para poder comparar fondos en distintas monedas.</div>`:''}
+      ${isTasa && !isMes && conDatos>0?`<div style="font-size:11px;color:var(--muted);margin-top:10px;padding:8px 12px;background:#f8fafc;border-radius:8px">💡 El rendimiento anual es <strong>compuesto</strong>: ∏(1 + tasa_mes) − 1. Refleja el crecimiento real considerando que los intereses se reinvierten mes a mes.</div>`:''}
+    </div>`;
+}
+
+function setRankMetric(m){  rankMetric = m;  renderRankingFondos(); }
+function setRankPeriodo(p){ rankPeriodo = p; renderRankingFondos(); }
 
 // HISTORIAL
 function renderHistorial(){
@@ -1345,6 +1490,12 @@ async function deleteHistorial(anio, mes, fondo, titular){
 }
 
 let movFondoIdSel = '', movAnioSel = 0;
+// Ranking de rendimiento (pestaña Fondos)
+let rankMetric  = 'tasa';   // 'tasa' | 'interes'
+let rankPeriodo = 'mes';    // 'mes'  | 'anio'
+let rankMes     = '';       // 'ENERO' .. 'DICIEMBRE'
+let rankAnio    = 0;        // 2026, 2025, ...
+
 function matchHistorialFondo(h, f){
   // Match historial entry h con D.fondo f (canónico + moneda + titular)
   const canonico = fondoCanonico(f.nombre) || f.nombre.toUpperCase();
