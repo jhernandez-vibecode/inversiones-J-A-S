@@ -14,7 +14,7 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 - **Repo:** https://github.com/jhernandez-vibecode/inversiones-J-A-S
 - **Local:** `C:\Users\segur\Documents\GitHub\inversiones-J-A-S\`
 - **Rama activa:** `main`
-- **Último commit (código):** v1.3 ranking de rendimiento (ver tabla de versionado abajo)
+- **Último commit (código):** `edb47cb` — feat: ranking de Fondos suma KPIs de total acumulado + promedio mensual
 - **OAuth Client ID** (Google Cloud): `446215450096-i2s3glor63qodpf3t12ogdgunedqgp27.apps.googleusercontent.com`
 - **Tamaño actual:** ~2592 líneas index.html
 
@@ -183,7 +183,7 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 | **v1.0** | (previo) | 7 pestañas: Dashboard, Fondos, Historial, CDP, Pólizas, Bienes, Cuentas · Auth Gmail · Sheets API · gráficos · export Excel · importer PDF de BN |
 | **v1.1** | 28 abr 2026 | **Pestaña Gastos Fijos** — 19 gastos seed · KPIs total/Q1/Q2/% pagado · toggle pagado interactivo · histórico mensual · pagos ocasionales · modal editar · 3 hojas nuevas. Commit `dcce5ab` |
 | **v1.2** | 2 may 2026 | **Multi-titular en HISTORIAL + Filtros + UX fixes**. Hilo completo: <br>• `fix: parser PDF reconoce fondo correctamente y propaga saldo a pestaña Fondos` (`5f2eded`) — antes capturaba "BN Sociedad Administradora..." como nombre del fondo<br>• `feat: editar nombre de fondos + botón eliminar registros del historial` (`bc1c2f6`)<br>• `fix: dropdown Reemplazar/Saltar en importar PDF re-renderiza para mostrar el botón Importar` (`7383206`)<br>• `feat: fecha de import en historial + filtro de movimientos por fondo` (`bbe3e00`)<br>• `feat: HISTORIAL distingue JC vs Alba por titular en fondos compartidos` (`9f2fa3e`)<br>• `fix: filtro Movimientos muestra saldo actual del fondo + arregla duplicación de líneas` (`450fe76`)<br>• `fix: gráficos Dashboard e Historial muestran las 4 series siempre` (`344a2ac`) |
-| **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card debajo de la tabla de fondos: <br>• Toggle **métrica**: 📈 Por tasa % / 💰 Por ganancias (USD equiv.)<br>• Toggle **período**: 📅 Por mes / 🗓️ Por año<br>• Selectores **año** + **mes** dinámicos (sólo opciones con datos en HISTORIAL)<br>• Ranking ordenado DESC con medallas 🥇🥈🥉 + posición #N<br>• Empty state cuando HISTORIAL está vacío o el período no tiene datos<br>• Tasa anual = compuesto ∏(1+t/100)−1, no suma simple<br>• Ganancias convierten cada fila con `toUSD()` según moneda del fondo<br>• Reutiliza `matchHistorialFondo()` para resolver el mapeo histórico→fondo (respeta multi-titular v1.2)<br>• **KPIs de resumen** (cuando métrica = ganancias): 💰 Total acumulado del período + 📊 Promedio mensual (total ÷ meses con datos) |
+| **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card nueva debajo de la tabla de fondos. Hilo: <br>• `feat: ranking de rendimiento en pestaña Fondos (v1.3)` (`ea90468`) — toggle métrica tasa%/ganancias + toggle período mes/año + selectores dinámicos año/mes (solo con datos) + ranking DESC con medallas 🥇🥈🥉 + empty state. Tasa anual = compuesto ∏(1+t/100)−1. Ganancias en USD equiv. usando `toUSD()`. Reutiliza `matchHistorialFondo()` para respetar multi-titular v1.2.<br>• `feat: ranking de Fondos suma KPIs de total acumulado + promedio mensual` (`edb47cb`) — cuando la métrica es ganancias, aparecen 2 KPIs arriba de la tabla: 💰 Total acumulado (Σ ganancias del período) + 📊 Promedio mensual (total ÷ meses con datos en HISTORIAL). En vista mensual N=1 y se aclara en sub-texto. En vista anual usa solo meses con datos, no ÷12, así no se diluye con meses futuros. |
 
 ## Reglas de desarrollo
 
@@ -221,8 +221,9 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 ## Pendientes / próximos pasos
 
 ### Validación pendiente con JC
-- Verificar que el filtro "Movimientos por fondo" muestra el fondo de Alba correctamente DESPUÉS de que JC renombre f2 (de "Superfondo Dólares Plus- Alba" → "BN Internacional SUMA") desde Editar Fondos. El histórico de BN INTERNACIONAL SUMA en HISTORIAL ya existía y se asociará automáticamente al fondo renombrado.
-- Confirmar que el gráfico del Dashboard ya muestra 4 líneas (Crecifondo, Superfondo $ JC, BN Internacional SUMA Alba, Superfondo Colones Alba). Después del rename, las que estaban en `(saldo actual)` discontinuas pasarán a línea sólida con datos reales.
+- **v1.3 ranking** — Validar en producción que con datos reales el ranking ordena correctamente, que los selectores año/mes filtran lo esperado, y que los KPIs de Total + Promedio mensual cuadran con lo que JC sabe de su portafolio.
+- (Pendiente desde v1.2) Verificar que el filtro "Movimientos por fondo" muestra el fondo de Alba correctamente DESPUÉS de que JC renombre f2 (de "Superfondo Dólares Plus- Alba" → "BN Internacional SUMA") desde Editar Fondos. El histórico de BN INTERNACIONAL SUMA en HISTORIAL ya existía y se asociará automáticamente al fondo renombrado.
+- (Pendiente desde v1.2) Confirmar que el gráfico del Dashboard ya muestra 4 líneas (Crecifondo, Superfondo $ JC, BN Internacional SUMA Alba, Superfondo Colones Alba). Después del rename, las que estaban en `(saldo actual)` discontinuas pasarán a línea sólida con datos reales.
 
 ### Features futuras propuestas
 - **Vista anual de Gastos Fijos** — tabla 12 meses × N gastos con totales por mes
@@ -234,8 +235,9 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 - **Debounce en toggles** — agrupar requests si JC marca varios pagos seguidos
 - **Edit inline de monto en celda** — sin abrir modal completo
 - **Dark mode** — toggle en header, persistir en localStorage
-- **% rendimiento anualizado** en filtro Movimientos
-- **Comparativa entre fondos** en gráfico de barras (ganancias acumuladas)
+- **Comparativa entre fondos** en gráfico de barras (ganancias acumuladas) — el ranking v1.3 lo muestra en tabla, falta visualización gráfica
+- **Exportar ranking a Excel** — agregar hoja con el ranking del año actual
+- **Drill-down del ranking** — click en una fila del ranking → ver el detalle mensual del fondo (gráfico + tabla)
 
 ### Nice-to-have del proyecto general
 - Onboarding inicial primera visita (tour de las 8 pestañas)
