@@ -16,7 +16,7 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 - **Rama activa:** `main`
 - **Último commit (código):** v1.3 ranking de rendimiento (ver tabla de versionado abajo)
 - **OAuth Client ID** (Google Cloud): `446215450096-i2s3glor63qodpf3t12ogdgunedqgp27.apps.googleusercontent.com`
-- **Tamaño actual:** ~2566 líneas index.html
+- **Tamaño actual:** ~2592 líneas index.html
 
 ### Qué está en producción
 
@@ -33,7 +33,7 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 ---
 
 ## Stack técnico
-- HTML + Vanilla JS (single-file, ~2566 líneas)
+- HTML + Vanilla JS (single-file, ~2592 líneas)
 - Outfit (Google Fonts) — toda la tipografía
 - Chart.js v4.4 (donut + line)
 - SheetJS v0.18 (export Excel `.xlsx`)
@@ -47,7 +47,7 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 
 ```
 inversiones-J-A-S/
-├── index.html                       # App completa SPA (~2566 líneas tras v1.3)
+├── index.html                       # App completa SPA (~2592 líneas tras v1.3)
 ├── README.md                        # Descripción breve del proyecto
 ├── SKILL.md                         # Este archivo (sync con ~/.claude/skills/.../SKILL.md)
 └── mockup-gastos-fijos.html         # Mockup intermedio v1.1 (untracked, se puede borrar)
@@ -183,7 +183,7 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 | **v1.0** | (previo) | 7 pestañas: Dashboard, Fondos, Historial, CDP, Pólizas, Bienes, Cuentas · Auth Gmail · Sheets API · gráficos · export Excel · importer PDF de BN |
 | **v1.1** | 28 abr 2026 | **Pestaña Gastos Fijos** — 19 gastos seed · KPIs total/Q1/Q2/% pagado · toggle pagado interactivo · histórico mensual · pagos ocasionales · modal editar · 3 hojas nuevas. Commit `dcce5ab` |
 | **v1.2** | 2 may 2026 | **Multi-titular en HISTORIAL + Filtros + UX fixes**. Hilo completo: <br>• `fix: parser PDF reconoce fondo correctamente y propaga saldo a pestaña Fondos` (`5f2eded`) — antes capturaba "BN Sociedad Administradora..." como nombre del fondo<br>• `feat: editar nombre de fondos + botón eliminar registros del historial` (`bc1c2f6`)<br>• `fix: dropdown Reemplazar/Saltar en importar PDF re-renderiza para mostrar el botón Importar` (`7383206`)<br>• `feat: fecha de import en historial + filtro de movimientos por fondo` (`bbe3e00`)<br>• `feat: HISTORIAL distingue JC vs Alba por titular en fondos compartidos` (`9f2fa3e`)<br>• `fix: filtro Movimientos muestra saldo actual del fondo + arregla duplicación de líneas` (`450fe76`)<br>• `fix: gráficos Dashboard e Historial muestran las 4 series siempre` (`344a2ac`) |
-| **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card debajo de la tabla de fondos: <br>• Toggle **métrica**: 📈 Por tasa % / 💰 Por ganancias (USD equiv.)<br>• Toggle **período**: 📅 Por mes / 🗓️ Por año<br>• Selectores **año** + **mes** dinámicos (sólo opciones con datos en HISTORIAL)<br>• Ranking ordenado DESC con medallas 🥇🥈🥉 + posición #N<br>• Empty state cuando HISTORIAL está vacío o el período no tiene datos<br>• Tasa anual = compuesto ∏(1+t/100)−1, no suma simple<br>• Ganancias convierten cada fila con `toUSD()` según moneda del fondo<br>• Reutiliza `matchHistorialFondo()` para resolver el mapeo histórico→fondo (respeta multi-titular v1.2) |
+| **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card debajo de la tabla de fondos: <br>• Toggle **métrica**: 📈 Por tasa % / 💰 Por ganancias (USD equiv.)<br>• Toggle **período**: 📅 Por mes / 🗓️ Por año<br>• Selectores **año** + **mes** dinámicos (sólo opciones con datos en HISTORIAL)<br>• Ranking ordenado DESC con medallas 🥇🥈🥉 + posición #N<br>• Empty state cuando HISTORIAL está vacío o el período no tiene datos<br>• Tasa anual = compuesto ∏(1+t/100)−1, no suma simple<br>• Ganancias convierten cada fila con `toUSD()` según moneda del fondo<br>• Reutiliza `matchHistorialFondo()` para resolver el mapeo histórico→fondo (respeta multi-titular v1.2)<br>• **KPIs de resumen** (cuando métrica = ganancias): 💰 Total acumulado del período + 📊 Promedio mensual (total ÷ meses con datos) |
 
 ## Reglas de desarrollo
 

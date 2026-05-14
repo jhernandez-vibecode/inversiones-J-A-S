@@ -1353,6 +1353,18 @@ function renderRankingFondos(){
   const perLabel = isMes ? `${cap(rankMes)} ${rankAnio}` : `Año ${rankAnio}`;
   const metricLabel = isTasa ? 'Por tasa %' : 'Por ganancias (equiv. USD)';
 
+  // KPIs de resumen (solo cuando la métrica es ganancias)
+  const periodoRowsAll = isMes
+    ? D.historial.filter(h => h.mes===rankMes && +h.anio===rankAnio)
+    : D.historial.filter(h => +h.anio===rankAnio);
+  const nMesesPeriodo = new Set(periodoRowsAll.map(h => h.mes)).size;
+  const nFondosConDatos = ranking.filter(r => r.hasData).length;
+  const totalGanUSD = !isTasa ? ranking.reduce((s,r)=>s+(r.valor||0),0) : 0;
+  const promMensualUSD = (!isTasa && nMesesPeriodo>0) ? totalGanUSD / nMesesPeriodo : 0;
+  const totalSign = totalGanUSD>=0 ? '+' : '-';
+  const totalColor = totalGanUSD>=0 ? '#fff' : '#fecaca';
+  const promColor = promMensualUSD>=0 ? 'var(--emerald)' : 'var(--red)';
+
   c.innerHTML = `
     <div class="cc">
       <div class="ct">🏆 Ranking de Rendimiento
@@ -1377,6 +1389,20 @@ function renderRankingFondos(){
             ${mesesYr.length?mesesYr.map(m=>`<option value="${m}" ${m===rankMes?'selected':''}>${cap(m)}</option>`).join(''):'<option>—</option>'}
           </select></div>`:''}
       </div>
+
+      ${!isTasa && conDatos>0?`
+        <div class="kg" style="margin-bottom:16px">
+          <div class="kc kconsol">
+            <div class="kl">💰 Total acumulado</div>
+            <div class="kv" style="color:${totalColor}">${totalSign}${fU(Math.abs(totalGanUSD))}</div>
+            <div class="ks">${perLabel} · ${nFondosConDatos} fondo${nFondosConDatos===1?'':'s'} con datos</div>
+          </div>
+          <div class="kc">
+            <div class="kl">📊 Promedio mensual</div>
+            <div class="kv" style="color:${promColor}">${promMensualUSD>=0?'+':'-'}${fU(Math.abs(promMensualUSD))}</div>
+            <div class="ks">${nMesesPeriodo} mes${nMesesPeriodo===1?'':'es'} con datos en HISTORIAL</div>
+          </div>
+        </div>`:''}
 
       ${conDatos===0?`
         <div style="text-align:center;color:var(--muted);padding:24px;background:#f8fafc;border-radius:12px">
