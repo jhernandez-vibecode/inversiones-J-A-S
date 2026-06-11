@@ -383,7 +383,7 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
       <div class="kg" id="kpiGrid"></div>
       <div class="cr">
         <div class="cc"><div class="ct">🍩 Distribución</div><div class="cw"><canvas id="cDonut"></canvas></div></div>
-        <div class="cc"><div class="ct">📈 Fondos 2026 (equiv. USD)</div><div class="cw"><canvas id="cLine"></canvas></div></div>
+        <div class="cc"><div class="ct" id="ctLineTitle">📈 Fondos (equiv. USD)</div><div class="cw"><canvas id="cLine"></canvas></div></div>
       </div>
       <div class="tc"><div class="th"><div class="th-t">💼 Todos los Activos</div></div>
         <div class="tw" id="allTable"></div></div>
@@ -405,10 +405,7 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
           <button class="btn btn-outline" onclick="openPdfImport()">📄 Importar PDF</button>
           <button class="btn btn-outline" onclick="openMod('mov')">➕ Registrar mes</button>
         </div></div>
-      <div class="yr-row">
-        <button class="yr active" data-year="2026">2026</button>
-        <button class="yr" data-year="2025">2025</button>
-      </div>
+      <div class="yr-row" id="histYearRow"></div>
       <div class="cc" style="margin-bottom:20px">
         <div class="ct">📈 Evolución de Saldos (equiv. USD)</div>
         <div class="cw" style="height:300px"><canvas id="cHist"></canvas></div>
@@ -572,7 +569,7 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
           <option>JULIO</option><option>AGOSTO</option><option>SEPTIEMBRE</option>
           <option>OCTUBRE</option><option>NOVIEMBRE</option><option>DICIEMBRE</option></select></div>
       <div class="fg"><label class="fl">Año</label>
-        <select class="fi" id="mAnio"><option>2026</option><option>2025</option></select></div>
+        <select class="fi" id="mAnio"></select></div>
     </div>
     <div class="fg"><label class="fl">Fondo</label>
       <select class="fi" id="mFondoSel"></select></div>
@@ -866,9 +863,9 @@ const DEFAULT = {
 
 // ─── STATE ───────────────────────────────────────────────────────
 let ACCESS_TOKEN = '';
-let SHEET_ID     = localStorage.getItem(LS_SID)||'';
+let SHEET_ID     = '';   // se resuelve por usuario al iniciar sesión (clave inv_sheet_id_v2::<email>)
 let D            = null;
-let selYear      = '2026';
+let selYear      = String(new Date().getFullYear());
 let histPage     = 0;
 const HIST_PAGE_SIZE = 12;
 
@@ -878,37 +875,84 @@ const fC = v=>'₡'+(+v).toLocaleString('es-CR',{maximumFractionDigits:0});
 const fP = v=>((+v)*1).toFixed(2)+'%';
 const toUSD = (v,m)=>m==='CRC'?v/D.tipo_cambio:v;
 const tc = ()=>D.tipo_cambio;
+// Parse local de 'YYYY-MM-DD' — new Date('YYYY-MM-DD') interpreta UTC y en CR (UTC-6) muestra un día antes
+const parseFechaLocal = s => { const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m? new Date(+m[1],+m[2]-1,+m[3]) : new Date(s); };
+const fmtFecha = s => { if(!s) return '—'; const d=parseFechaLocal(s); return isNaN(d)?String(s):d.toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'}); };
+// Fecha de HOY local (toISOString() es UTC: después de las 6pm en CR daría el día siguiente)
+const hoyLocal = ()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const escAttr = v => String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+// ─── AUTH FETCH (renueva el token si expiró) ─────────────────────
+let pendingTokenResolve=null, pendingTokenReject=null, refreshPromise=null;
+function refreshAccessToken(){
+  if(refreshPromise) return refreshPromise;
+  refreshPromise = new Promise((resolve,reject)=>{
+    if(!tokenClient){ reject(new Error('auth no inicializado')); return; }
+    pendingTokenResolve=resolve; pendingTokenReject=reject;
+    setTimeout(()=>{
+      // Comparar identidad: un timer viejo no puede matar un refresh más nuevo
+      if(pendingTokenReject===reject){
+        pendingTokenResolve=pendingTokenReject=null;
+        reject(new Error('timeout renovando la sesión'));
+      }
+    },15000);
+    try{
+      // hint fija la cuenta de la sesión activa (2 usuarios pueden compartir navegador)
+      const u = JSON.parse(sessionStorage.getItem(SS_USER)||'null');
+      tokenClient.requestAccessToken({prompt:'', hint:(u&&u.email)||undefined});
+    }
+    catch(e){ pendingTokenResolve=pendingTokenReject=null; reject(e); }
+  });
+  const clear=()=>{refreshPromise=null;};
+  refreshPromise.then(clear,clear);
+  return refreshPromise;
+}
+async function authFetch(url, opts={}){
+  const doFetch = ()=>fetch(url,{...opts,headers:{...(opts.headers||{}),Authorization:'Bearer '+ACCESS_TOKEN}});
+  let r = await doFetch();
+  if(r.status===401){
+    try{ await refreshAccessToken(); }
+    catch(e){
+      // LANZAR (no devolver el 401): si esto se tragara como lectura vacía,
+      // el autofill podría pisar datos reales con los defaults
+      toast('⚠️ Sesión expirada — recargá la página e iniciá sesión de nuevo', true);
+      throw new Error('Sesión expirada ('+(e.message||'auth')+')');
+    }
+    r = await doFetch();
+  }
+  return r;
+}
 
 // ─── SHEETS API ──────────────────────────────────────────────────
 async function shGet(range) {
-  const r = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`,
-    {headers:{Authorization:'Bearer '+ACCESS_TOKEN}}
+  const r = await authFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`
   );
   if(!r.ok) throw new Error(await r.text());
   return (await r.json()).values||[];
 }
 
 async function shSet(range, values) {
-  const r = await fetch(
+  const r = await authFetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
-    {method:'PUT',headers:{Authorization:'Bearer '+ACCESS_TOKEN,'Content-Type':'application/json'},
+    {method:'PUT',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({values})}
   );
   if(!r.ok) throw new Error(await r.text());
 }
 
 async function shClear(range) {
-  await fetch(
+  const r = await authFetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`,
-    {method:'POST',headers:{Authorization:'Bearer '+ACCESS_TOKEN}}
+    {method:'POST'}
   );
+  if(!r.ok) throw new Error(await r.text());
 }
 
 async function createSpreadsheet() {
-  const r = await fetch('https://sheets.googleapis.com/v4/spreadsheets',{
+  const r = await authFetch('https://sheets.googleapis.com/v4/spreadsheets',{
     method:'POST',
-    headers:{Authorization:'Bearer '+ACCESS_TOKEN,'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       properties:{title:'Control de Inversiones JC'},
       sheets:[
@@ -923,18 +967,25 @@ async function createSpreadsheet() {
   return (await r.json()).spreadsheetId;
 }
 
+// ¿El usuario actual puede acceder a este spreadsheet? (false solo si Google dice 403/404)
+async function sheetAccesible(id){
+  const r = await authFetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=spreadsheetId`);
+  if(r.ok) return true;
+  if(r.status===403 || r.status===404) return false;
+  throw new Error('No se pudo verificar el spreadsheet ('+r.status+')');
+}
+
 async function ensureTabsExist(){
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`,
-    {headers:{Authorization:'Bearer '+ACCESS_TOKEN}});
+  const r = await authFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`);
   if(!r.ok) throw new Error('No se pudo leer metadata del spreadsheet');
   const meta = await r.json();
   const existing = meta.sheets.map(s=>s.properties.title);
   const needed = ['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL','GASTOS_FIJOS','PAGOS_QUINCENA','OCASIONALES'];
   const missing = needed.filter(t=>!existing.includes(t));
   if(!missing.length) return;
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{
+  const res = await authFetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{
     method:'POST',
-    headers:{Authorization:'Bearer '+ACCESS_TOKEN,'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify({requests:missing.map(t=>({addSheet:{properties:{title:t}}}))})
   });
   if(!res.ok) throw new Error('No se pudieron crear tabs: '+missing.join(','));
@@ -959,9 +1010,9 @@ async function batchWrite(sections){
   const p = defaultPayload();
   const data = sections.map(s=>({range:s+'!A1', values:p[s]}));
   console.log('[batchWrite] escribiendo', sections, 'en sheet', SHEET_ID);
-  const r = await fetch(
+  const r = await authFetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`,
-    {method:'POST',headers:{Authorization:'Bearer '+ACCESS_TOKEN,'Content-Type':'application/json'},
+    {method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({valueInputOption:'RAW', data})}
   );
   const txt = await r.text();
@@ -987,18 +1038,23 @@ async function autofillMissing(sections){
 }
 
 async function shGetSafe(range){
+  // null = lectura FALLIDA (red/auth). Nunca devolver [] en error: loadFromSheets
+  // lo interpretaría como hoja vacía y el autofill pisaría datos reales.
   try { const v = await shGet(range); console.log('[shGet]', range, '→', v.length, 'filas'); return v; }
-  catch(e){ console.warn('[shGet] FAIL', range, e.message); return []; }
+  catch(e){ console.warn('[shGet] FAIL', range, e.message); return null; }
 }
 
 async function loadFromSheets() {
   toast('Cargando datos…', false);
   try {
-    let [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
+    let reads = await Promise.all([
       shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
       shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:L'),
       shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
     ]);
+    // Si CUALQUIER lectura falló, abortar: jamás autofillear sobre lecturas fallidas
+    if(reads.includes(null)) throw new Error('No se pudieron leer los datos del spreadsheet. Reintentá con 🔄 Sync.');
+    let [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = reads;
     const miss = [];
     if(fondos.length<2)   miss.push('FONDOS');
     if(cdp.length<2)      miss.push('CDP');
@@ -1020,11 +1076,13 @@ async function loadFromSheets() {
         alert('No se pudo rellenar el spreadsheet.\n\n'+e.message+'\n\nAbre la consola (F12 → Consola) y envía el mensaje [batchWrite] FAIL.');
         throw e;
       }
-      [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = await Promise.all([
+      reads = await Promise.all([
         shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
         shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:L'),
         shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
       ]);
+      if(reads.includes(null)) throw new Error('No se pudieron releer los datos tras el autofill. Reintentá con 🔄 Sync.');
+      [cfg, fondos, cdp, polizas, bienes, cuentas, hist, gfijos, pagosQ, ocas] = reads;
     }
     const eb = document.getElementById('emptyBanner');
     if(eb) eb.style.display = 'none';
@@ -1080,17 +1138,46 @@ function initGSI() {
     client_id: CLIENT_ID,
     scope: 'email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
     prompt: '',
-    callback: handleToken
+    callback: handleToken,
+    error_callback: (err)=>{
+      // Popup bloqueado/cerrado: rechazar el refresh pendiente YA, sin esperar el timeout de 15s
+      if(pendingTokenReject){
+        const rej=pendingTokenReject;
+        pendingTokenResolve=pendingTokenReject=null;
+        rej(new Error((err&&err.type)||'popup bloqueado'));
+      } else if(document.getElementById('app').style.display==='block'){
+        toast('⚠️ Error de autenticación: '+((err&&err.type)||'popup'), true);
+      } else {
+        showErr('Error de autenticación: '+((err&&err.type)||'popup'));
+      }
+    }
   });
   google.accounts.id.initialize({client_id:CLIENT_ID, callback:()=>{}});
   google.accounts.id.renderButton(document.getElementById('gBtn'),
     {theme:'outline',size:'large',text:'signin_with',shape:'pill',width:260,locale:'es',
      click_listener:()=>tokenClient.requestAccessToken()});
-  // Si había sesión guardada, pedir token silenciosamente
-  if(sessionStorage.getItem(SS_USER)) tokenClient.requestAccessToken({prompt:''});
+  // Si había sesión guardada, pedir token silenciosamente (hint fija la cuenta correcta)
+  if(sessionStorage.getItem(SS_USER)){
+    const u = JSON.parse(sessionStorage.getItem(SS_USER)||'null');
+    tokenClient.requestAccessToken({prompt:'', hint:(u&&u.email)||undefined});
+  }
 }
 
 async function handleToken(resp) {
+  // ¿Hay un refresh silencioso en curso? Solo renovar el token, sin repetir el flujo de login
+  if(pendingTokenResolve){
+    const res=pendingTokenResolve, rej=pendingTokenReject;
+    pendingTokenResolve=pendingTokenReject=null;
+    if(resp.error){ rej(new Error(resp.error)); return; }
+    ACCESS_TOKEN = resp.access_token;
+    res(); return;
+  }
+  // Token tardío (llegó después del timeout del refresh) con la app ya abierta:
+  // solo actualizar el token, sin repetir login/render
+  if(sessionStorage.getItem(SS_USER) && document.getElementById('app').style.display==='block'){
+    if(!resp.error) ACCESS_TOKEN = resp.access_token;
+    return;
+  }
   if(resp.error){showErr('Error de autenticación: '+resp.error);return;}
   ACCESS_TOKEN = resp.access_token;
   try {
@@ -1100,16 +1187,33 @@ async function handleToken(resp) {
       showErr('Acceso no autorizado para '+user.email); ACCESS_TOKEN=''; return;
     }
     sessionStorage.setItem(SS_USER, JSON.stringify(user));
-    showApp(user);
-    // Init spreadsheet
-    if(!SHEET_ID) {
+    // Resolver el spreadsheet DEL USUARIO: clave por email + validación de acceso.
+    // (La clave legacy compartida hacía que un segundo usuario en el mismo navegador
+    //  intentara usar el sheet del primero y recibiera 403.)
+    // showApp() corre DESPUÉS: si esto falla, el error se ve en la pantalla de login.
+    const userKey = LS_SID+'::'+user.email;
+    let sid = localStorage.getItem(userKey)||'';
+    if(sid && !(await sheetAccesible(sid))) sid = '';
+    if(!sid){
+      const legacy = localStorage.getItem(LS_SID)||'';
+      if(legacy && await sheetAccesible(legacy)) sid = legacy;
+    }
+    if(sid){
+      SHEET_ID = sid;
+      localStorage.setItem(userKey, sid);
+    } else {
       toast('Creando hoja de cálculo…', false);
       SHEET_ID = await createSpreadsheet();
-      localStorage.setItem(LS_SID, SHEET_ID);
+      localStorage.setItem(userKey, SHEET_ID);
       await populateSheet();
     }
+    showApp(user);
     await loadFromSheets();
-  } catch(e) {showErr('Error: '+e.message);}
+  } catch(e) {
+    // Si la app ya está visible, #loginError está oculto — usar toast
+    if(document.getElementById('app').style.display==='block') toast('❌ '+e.message, true);
+    else showErr('Error: '+e.message);
+  }
 }
 
 function showApp(user) {
@@ -1136,7 +1240,8 @@ async function reseedDefaults(){
   if(!confirm('¿Reemplazar TODO el spreadsheet con los datos por defecto del Excel original?\n\nEsto borra cualquier cambio que hayas hecho.')) return;
   toast('Repoblando datos…', false);
   try{
-    for(const sh of ['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL']) await shClear(sh+'!A:Z');
+    await ensureTabsExist();   // una tab faltante haría fallar su shClear y abortaría el reseed
+    for(const sh of ['CONFIG','FONDOS','CDP','POLIZAS','BIENES','CUENTAS','HISTORIAL','GASTOS_FIJOS','PAGOS_QUINCENA','OCASIONALES']) await shClear(sh+'!A:Z');
     await populateSheet();
     await loadFromSheets();
     toast('✅ Datos por defecto cargados');
@@ -1168,7 +1273,9 @@ function renderAll(){
 function renderDash(){
   const tFU = D.fondos.filter(f=>f.moneda==='USD').reduce((s,f)=>s+f.saldo,0);
   const tFC = D.fondos.filter(f=>f.moneda==='CRC').reduce((s,f)=>s+f.saldo,0);
-  const tDP = D.cdp.reduce((s,c)=>s+c.saldo,0);
+  // Solo CDPs vigentes cuentan como patrimonio (los aplicados ya se gastaron)
+  const cdpVig = D.cdp.filter(c=>(c.estado||'vigente')!=='aplicado');
+  const tDP = cdpVig.reduce((s,c)=>s+c.saldo,0);
   const tBi = D.bienes.reduce((s,b)=>s+b.valor,0);
   const tot = tFU+tFC/tc()+tDP/tc()+tBi;
   const tFUSD = tFU + tFC/tc();
@@ -1179,7 +1286,7 @@ function renderDash(){
       <div class="ks">USD + CRC en dólares</div>
       <div class="tc-edit"><label>T.C. ₡</label><input type="number" step="0.01" id="tcDash" value="${D.tipo_cambio}" onkeydown="if(event.key==='Enter')updateTC('tcDash')"/>
         <button type="button" onclick="updateTC('tcDash')">Actualizar</button></div></div>
-    <div class="kc"><div class="kl">🏦 CDPs</div><div class="kv">${fC(tDP)}</div><div class="ks">${D.cdp.length} certificados</div></div>
+    <div class="kc"><div class="kl">🏦 CDPs</div><div class="kv">${fC(tDP)}</div><div class="ks">${cdpVig.length} vigente${cdpVig.length===1?'':'s'}</div></div>
     <div class="kc"><div class="kl">🏠 Bienes</div><div class="kv">${fU(tBi)}</div><div class="ks">${D.bienes.length} activos</div></div>
     <div class="kc ktotal"><div class="kl">🌐 Patrimonio Total</div><div class="kv">${fU(tot)}</div><div class="ks">Todos los activos en USD</div></div>`;
 
@@ -1194,8 +1301,10 @@ function renderDash(){
         tooltip:{callbacks:{label:ctx=>' '+fU(ctx.parsed)+' ('+(ctx.parsed/cats.reduce((s,c)=>s+c.v,0)*100).toFixed(1)+'%)'}}}}});
 
   const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-  const h26=D.historial.filter(h=>+h.anio===2026);
-  const meses=[...new Set(h26.map(r=>r.mes))].sort((a,b)=>MORD.indexOf(a)-MORD.indexOf(b));
+  const anioDash=new Date().getFullYear();
+  document.getElementById('ctLineTitle').textContent='📈 Fondos '+anioDash+' (equiv. USD)';
+  const hAnio=D.historial.filter(h=>+h.anio===anioDash);
+  const meses=[...new Set(hAnio.map(r=>r.mes))].sort((a,b)=>MORD.indexOf(a)-MORD.indexOf(b));
   const meses4=meses.length?meses:['ENERO','FEBRERO','MARZO','ABRIL'];
   const palette=['#6366f1','#0ea5e9','#10b981','#f59e0b','#a855f7','#ec4899'];
   const tcv=tc();
@@ -1203,7 +1312,7 @@ function renderDash(){
     const color=palette[i%palette.length];
     const firstName=(f.titular||'').split(/\s+/)[0]||'';
     const monthly=meses4.map(m=>{
-      const matches=h26.filter(x=>x.mes===m && matchHistorialFondo(x,f));
+      const matches=hAnio.filter(x=>x.mes===m && matchHistorialFondo(x,f));
       // Si hay duplicados (registro viejo sin titular + nuevo con titular), preferir el que tenga titular
       const r=matches.find(x=>x.titular)||matches[0];
       return r?(r.moneda==='CRC'?r.saldo_final/tcv:r.saldo_final):null;
@@ -1229,8 +1338,8 @@ function renderDash(){
   const rows=[
     ...D.fondos.map(f=>({cat:'Inversión',p:'b-blue',n:f.nombre,t:f.titular,
       s:f.moneda==='USD'?fU(f.saldo):fC(f.saldo),u:fU(toUSD(f.saldo,f.moneda)),d:f.tipo})),
-    ...D.cdp.map(c=>({cat:'CDP',p:'b-amber',n:c.nombre,t:c.titular,
-      s:fC(c.saldo),u:fU(c.saldo/tc()),d:c.vence})),
+    ...cdpVig.map(c=>({cat:'CDP',p:'b-amber',n:c.nombre,t:c.titular,
+      s:fC(c.saldo),u:fU(c.saldo/tc()),d:fmtFecha(c.vence)})),
     ...D.bienes.map(b=>({cat:b.tipo,p:b.tipo==='Inmueble'?'b-blue':'b-green',
       n:b.nombre,t:b.detalle,s:fU(b.valor),u:fU(b.valor),d:b.tipo}))
   ];
@@ -1437,6 +1546,14 @@ function setRankPeriodo(p){ rankPeriodo = p; renderRankingFondos(); }
 // HISTORIAL
 function renderHistorial(){
   const MORD=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  // Botones de año dinámicos: años con datos en HISTORIAL + año actual (antes estaban fijos 2026/2025)
+  const aniosH=[...new Set(D.historial.map(h=>+h.anio))].filter(a=>a>0);
+  const curY=new Date().getFullYear();
+  if(!aniosH.includes(curY)) aniosH.push(curY);
+  aniosH.sort((a,b)=>b-a);
+  if(!aniosH.includes(+selYear)) selYear=String(aniosH[0]);
+  document.getElementById('histYearRow').innerHTML=aniosH.map(a=>
+    `<button class="yr ${String(a)===String(selYear)?'active':''}" onclick="setHistYear(${a})">${a}</button>`).join('');
   const hist=D.historial.filter(h=>+h.anio===+selYear);
   const meses=[...new Set(hist.map(r=>r.mes))].sort((a,b)=>MORD.indexOf(a)-MORD.indexOf(b));
   const meses4 = meses.length ? meses : ['ENERO','FEBRERO','MARZO','ABRIL'];
@@ -1497,6 +1614,7 @@ function renderHistorial(){
     </tr>`).join('')}</tbody></table></div></div>${pagerH}`;
   renderHistMovimientos();
 }
+function setHistYear(y){ selYear=String(y); histPage=0; renderHistorial(); }
 
 async function deleteHistorial(anio, mes, fondo, titular){
   const t = titular||'';
@@ -1611,12 +1729,13 @@ function renderCDP(){
   const aplicados = D.cdp.filter(c=>c.estado==='aplicado');
   const shown = selCdpEstado==='aplicado'?aplicados:vigentes;
   const totalVig = vigentes.reduce((s,c)=>s+c.saldo,0);
-  const prox = [...vigentes].sort((a,b)=>new Date(a.vence)-new Date(b.vence))[0];
+  const prox = vigentes.filter(c=>!isNaN(parseFechaLocal(c.vence)))
+    .sort((a,b)=>parseFechaLocal(a.vence)-parseFechaLocal(b.vence))[0];
   document.getElementById('cdpC').innerHTML=`
     <div class="info-box">💼 Abogado: <strong>Federico Altamura</strong> &nbsp;📞 8836-4617</div>
     <div class="kg" style="margin-bottom:20px">
       <div class="kc"><div class="kl">🏦 Total CDPs Vigentes</div><div class="kv">${fC(totalVig)}</div><div class="ks">${fU(totalVig/tc())} equiv.</div></div>
-      <div class="kc"><div class="kl">📅 Próximo vence</div><div class="kv" style="font-size:18px">${prox?.vence||'—'}</div><div class="ks">${prox?.nombre||'—'}</div></div>
+      <div class="kc"><div class="kl">📅 Próximo vence</div><div class="kv" style="font-size:18px">${prox?fmtFecha(prox.vence):'—'}</div><div class="ks">${prox?.nombre||'—'}</div></div>
     </div>
     <div class="yr-row" style="margin-bottom:16px">
       <button class="yr ${selCdpEstado==='vigente'?'active':''}" onclick="setCdpFilter('vigente')">Vigentes (${vigentes.length})</button>
@@ -1626,20 +1745,21 @@ function renderCDP(){
       <thead><tr><th>Nombre</th><th>Titular</th><th>Saldo</th><th>Vencimiento</th><th>Estado</th><th></th></tr></thead>
       <tbody>${shown.length?shown.map(c=>{
         if(c.estado==='aplicado'){
-          const fa = c.fecha_aplicado?new Date(c.fecha_aplicado).toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'}):'—';
+          const fa = fmtFecha(c.fecha_aplicado);
           return `<tr class="row-applied"><td style="font-weight:700">${c.nombre}</td>
             <td>${c.titular}</td>
             <td class="acrc">${fC(c.saldo)}</td>
-            <td>${new Date(c.vence).toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'})}</td>
+            <td>${fmtFecha(c.vence)}</td>
             <td><span class="b b-gray">✓ Aplicado · ${fa}</span></td>
             <td><button class="btn-link" onclick="markCDP('${c.id}','vigente')">Deshacer</button></td></tr>`;
         }
-        const d=Math.ceil((new Date(c.vence)-now)/86400000);
-        const sc=d<0?'b-red':d<90?'b-red':d<180?'b-amber':'b-green';
-        const st=d<0?'Vencido':d<30?d+'d ⚠️':d+'d';
+        const dv=parseFechaLocal(c.vence);
+        const d=isNaN(dv)?null:Math.ceil((dv-now)/86400000);
+        const sc=d===null?'b-gray':d<0?'b-red':d<90?'b-red':d<180?'b-amber':'b-green';
+        const st=d===null?'Sin fecha':d<0?'Vencido':d<30?d+'d ⚠️':d+'d';
         return `<tr><td style="font-weight:700">${c.nombre}</td><td style="color:var(--muted)">${c.titular}</td>
           <td class="acrc">${fC(c.saldo)}</td>
-          <td>${new Date(c.vence).toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'})}</td>
+          <td>${fmtFecha(c.vence)}</td>
           <td><span class="b ${sc}">${st}</span></td>
           <td><button class="btn-link" onclick="markCDP('${c.id}','aplicado')">✓ Marcar aplicado</button></td></tr>`;
       }).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Sin CDPs ${selCdpEstado==='aplicado'?'aplicados':'vigentes'}</td></tr>`}</tbody></table></div></div>`;
@@ -1730,12 +1850,12 @@ function buildFondosForm(){
         ${delBtn('delFondo',f.id)}
       </div>
       <div class="fg"><label class="fl">Nombre</label>
-        <input class="fi" type="text" id="fn_${i}" value="${f.nombre.replace(/"/g,'&quot;')}"></div>
+        <input class="fi" type="text" id="fn_${i}" value="${escAttr(f.nombre)}"></div>
       <div class="fr">
         <div class="fg"><label class="fl">Saldo (${f.moneda})</label>
           <input class="fi" type="number" id="fs_${i}" value="${f.saldo}" step="0.01"></div>
         <div class="fg"><label class="fl">Vencimiento</label>
-          <input class="fi" type="text" id="fv_${i}" value="${f.vence}"></div>
+          <input class="fi" type="text" id="fv_${i}" value="${escAttr(f.vence)}"></div>
       </div></div>`).join('')+`
     <div class="fg"><label class="fl">Tipo de Cambio (₡ por $1)</label>
       <input class="fi" type="number" id="ftc" value="${D.tipo_cambio}" step="0.01"></div>`;
@@ -1749,9 +1869,11 @@ async function saveFondos(){
     f.vence=document.getElementById('fv_'+i).value;
   });
   D.tipo_cambio=parseFloat(document.getElementById('ftc').value)||510;
-  await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
-    D.fondos.map(f=>[f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence]));
-  renderAll(); closeMod('fondos');
+  try{
+    await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
+      D.fondos.map(f=>[f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence]));
+    renderAll(); closeMod('fondos');
+  }catch(e){ toast('❌ '+e.message, true); }
 }
 
 function buildCdpForm(){
@@ -1761,12 +1883,12 @@ function buildCdpForm(){
       ${delBtn('delCdp',c.id)}
     </div>
     <div class="fg"><label class="fl">Nombre</label>
-      <input class="fi" type="text" id="cn_${i}" value="${c.nombre}"></div>
+      <input class="fi" type="text" id="cn_${i}" value="${escAttr(c.nombre)}"></div>
     <div class="fr">
       <div class="fg"><label class="fl">Saldo (₡)</label>
         <input class="fi" type="number" id="cs_${i}" value="${c.saldo}"></div>
       <div class="fg"><label class="fl">Vencimiento</label>
-        <input class="fi" type="date" id="cv_${i}" value="${(c.vence||'').substring(0,10)}"></div>
+        <input class="fi" type="date" id="cv_${i}" value="${escAttr((c.vence||'').substring(0,10))}"></div>
     </div></div>`).join('');
 }
 async function saveCdp(){
@@ -1776,9 +1898,11 @@ async function saveCdp(){
     c.saldo=parseFloat(document.getElementById('cs_'+i).value)||0;
     c.vence=document.getElementById('cv_'+i).value;
   });
-  await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
-    D.cdp.map(c=>[c.id,c.nombre,c.titular,c.saldo,c.vence,c.estado||'vigente',c.fecha_aplicado||'']));
-  renderAll(); closeMod('cdp');
+  try{
+    await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
+      D.cdp.map(c=>[c.id,c.nombre,c.titular,c.saldo,c.vence,c.estado||'vigente',c.fecha_aplicado||'']));
+    renderAll(); closeMod('cdp');
+  }catch(e){ toast('❌ '+e.message, true); }
 }
 async function markCDP(id, nuevoEstado){
   const c = D.cdp.find(x=>x.id===id);
@@ -1786,7 +1910,7 @@ async function markCDP(id, nuevoEstado){
   if(nuevoEstado==='aplicado'){
     if(!confirm(`¿Marcar "${c.nombre}" como aplicado?\n\nSaldo: ${fC(c.saldo)}\nFecha de aplicación: hoy`)) return;
     c.estado='aplicado';
-    c.fecha_aplicado=new Date().toISOString().substring(0,10);
+    c.fecha_aplicado=hoyLocal();
   } else {
     c.estado='vigente';
     c.fecha_aplicado='';
@@ -1794,7 +1918,7 @@ async function markCDP(id, nuevoEstado){
   try{
     await saveSection('CDP',['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],
       D.cdp.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.vence,x.estado||'vigente',x.fecha_aplicado||'']));
-    renderCDP();
+    renderAll();   // el Dashboard también depende del estado (cdpVig)
   }catch(e){ toast('❌ Error: '+e.message, true); }
 }
 
@@ -1813,9 +1937,11 @@ async function saveBienes(){
     const el=document.getElementById('bv_'+i); if(!el) return;
     b.valor=parseFloat(el.value)||0;
   });
-  await saveSection('BIENES',['id','nombre','tipo','valor','detalle','icon'],
-    D.bienes.map(b=>[b.id,b.nombre,b.tipo,b.valor,b.detalle,b.icon]));
-  renderAll(); closeMod('bienes');
+  try{
+    await saveSection('BIENES',['id','nombre','tipo','valor','detalle','icon'],
+      D.bienes.map(b=>[b.id,b.nombre,b.tipo,b.valor,b.detalle,b.icon]));
+    renderAll(); closeMod('bienes');
+  }catch(e){ toast('❌ '+e.message, true); }
 }
 
 // ─── EDITAR PÓLIZAS ──────────────────────────────────────────────
@@ -1826,7 +1952,7 @@ function buildPolizasForm(){
       ${delBtn('delPoliza',p.id)}
     </div>
     <div class="fg"><label class="fl">Nombre</label>
-      <input class="fi" type="text" id="pn_${i}" value="${p.nombre}"></div>
+      <input class="fi" type="text" id="pn_${i}" value="${escAttr(p.nombre)}"></div>
     <div class="fr">
       <div class="fg"><label class="fl">Monto Asegurado</label>
         <input class="fi" type="number" id="pm_${i}" value="${p.monto}"></div>
@@ -1841,9 +1967,11 @@ async function savePolizasMod(){
     p.monto=parseFloat(document.getElementById('pm_'+i).value)||0;
     p.ahorro=parseFloat(document.getElementById('pa_'+i).value)||0;
   });
-  await saveSection('POLIZAS',['id','nombre','titular','monto','moneda','ahorro','tipo'],
-    D.polizas.map(p=>[p.id,p.nombre,p.titular,p.monto,p.moneda,p.ahorro,p.tipo]));
-  renderAll(); closeMod('polizas');
+  try{
+    await saveSection('POLIZAS',['id','nombre','titular','monto','moneda','ahorro','tipo'],
+      D.polizas.map(p=>[p.id,p.nombre,p.titular,p.monto,p.moneda,p.ahorro,p.tipo]));
+    renderAll(); closeMod('polizas');
+  }catch(e){ toast('❌ '+e.message, true); }
 }
 
 // ─── EDITAR CUENTAS ──────────────────────────────────────────────
@@ -1854,7 +1982,7 @@ function buildCuentasForm(){
       ${delBtn('delCuenta',c.id)}
     </div>
     <div class="fg"><label class="fl">Descripción</label>
-      <input class="fi" type="text" id="ud_${i}" value="${c.desc||''}"></div>
+      <input class="fi" type="text" id="ud_${i}" value="${escAttr(c.desc||'')}"></div>
   </div>`).join('');
 }
 async function saveCuentasMod(){
@@ -1862,9 +1990,11 @@ async function saveCuentasMod(){
     const el=document.getElementById('ud_'+i); if(!el) return;
     c.desc=el.value;
   });
-  await saveSection('CUENTAS',['id','titular','banco','moneda','desc'],
-    D.cuentas.map(c=>[c.id,c.titular,c.banco,c.moneda,c.desc]));
-  renderAll(); closeMod('cuentas');
+  try{
+    await saveSection('CUENTAS',['id','titular','banco','moneda','desc'],
+      D.cuentas.map(c=>[c.id,c.titular,c.banco,c.moneda,c.desc]));
+    renderAll(); closeMod('cuentas');
+  }catch(e){ toast('❌ '+e.message, true); }
 }
 
 // ─── PREPARAR MODALES "AGREGAR" ──────────────────────────────────
@@ -2042,6 +2172,13 @@ function prepareAddMov(){
   sel.innerHTML = D.fondos.map(f =>
     `<option value="${f.id}">${f.nombre} · ${f.titular} · ${f.moneda}</option>`
   ).join('');
+  // Años dinámicos: años con datos + año actual y anterior (antes estaban fijos 2026/2025)
+  const selA = document.getElementById('mAnio');
+  const years = [...new Set(D.historial.map(h=>+h.anio))].filter(a=>a>0);
+  const curY = new Date().getFullYear();
+  [curY, curY-1].forEach(y=>{ if(!years.includes(y)) years.push(y); });
+  years.sort((a,b)=>b-a);
+  selA.innerHTML = years.map(y=>`<option>${y}</option>`).join('');
 }
 
 async function saveMov(){
@@ -2060,13 +2197,15 @@ async function saveMov(){
     saldo_final:parseFloat(document.getElementById('mSF').value)||0,
     titular: f.titular||''
   };
-  entry.fecha_import = new Date().toISOString().substring(0,10);
+  entry.fecha_import = hoyLocal();
   const idx=D.historial.findIndex(h=>+h.anio===anio&&h.mes===entry.mes&&h.fondo===fondo&&(h.titular||'')===(entry.titular||''));
   if(idx>=0) D.historial[idx]=entry; else D.historial.push(entry);
-  await saveSection('HISTORIAL',
-    ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],
-    D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'',h.titular||'']));
-  renderAll(); closeMod('mov');
+  try{
+    await saveSection('HISTORIAL',
+      ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],
+      D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'',h.titular||'']));
+    renderAll(); closeMod('mov');
+  }catch(e){ toast('❌ '+e.message, true); }
 }
 
 // ─── IMPORTAR PDF ────────────────────────────────────────────────
@@ -2228,7 +2367,7 @@ async function importPdfRows(){
   if(!toApply.length){ toast('Nada que importar', true); return; }
   // Track del último saldo importado por (fondo, moneda) para propagar a D.fondos
   const ultimoPorFondo = {};
-  const hoy = new Date().toISOString().substring(0,10);
+  const hoy = hoyLocal();
   for(const r of toApply){
     const d = r.data;
     const entry = {anio:d.anio, mes:d.mes, fondo:d.fondo, moneda:d.moneda,
@@ -2299,7 +2438,7 @@ function exportExcel(){
     [''],
     ['CERTIFICADOS DE DEPÓSITO','','','','',''],
     ['Nombre','Titular','Saldo','Moneda','Vence','Estado'],
-    ...D.cdp.map(c=>[c.nombre,c.titular,+c.saldo,'CRC',c.vence,'']),
+    ...D.cdp.map(c=>[c.nombre,c.titular,+c.saldo,'CRC',c.vence,c.estado||'vigente']),
     [''],
     ['BIENES E INMUEBLES','','','','',''],
     ['Nombre','Tipo','Valor USD','','',''],
@@ -2322,7 +2461,8 @@ function exportExcel(){
 
   // CDP
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(D.cdp.map(c=>({
-    Nombre:c.nombre,Titular:c.titular,Saldo:+c.saldo,Vence:c.vence
+    Nombre:c.nombre,Titular:c.titular,Saldo:+c.saldo,Vence:c.vence,
+    Estado:c.estado||'vigente','Fecha Aplicado':c.fecha_aplicado||''
   }))),'CDP');
 
   // PÓLIZAS
@@ -2331,7 +2471,7 @@ function exportExcel(){
     Ahorro:+p.ahorro,Tipo:p.tipo
   }))),'POLIZAS');
 
-  XLSX.writeFile(wb,'Control_Inversiones_'+new Date().toISOString().substring(0,10)+'.xlsx');
+  XLSX.writeFile(wb,'Control_Inversiones_'+hoyLocal()+'.xlsx');
   toast('✅ Excel descargado');
 }
 
@@ -2536,7 +2676,7 @@ function drawEditGastosList(){
     </div>` +
     gEditDraft.map((e,i)=>`
       <div class="fb fb-gastos">
-        <input class="fi" type="text" value="${(e.concepto||'').replace(/"/g,'&quot;')}" onchange="gEditDraft[${i}].concepto=this.value">
+        <input class="fi" type="text" value="${escAttr(e.concepto||'')}" onchange="gEditDraft[${i}].concepto=this.value">
         <input class="fi" type="number" value="${e.q1||0}" onchange="gEditDraft[${i}].q1=parseFloat(this.value)||0">
         <input class="fi" type="number" value="${e.q2||0}" onchange="gEditDraft[${i}].q2=parseFloat(this.value)||0">
         <button class="btn-del" onclick="removeGastoRow(${i})" title="Eliminar">🗑️</button>
@@ -2574,10 +2714,6 @@ document.querySelectorAll('.nav-tab').forEach(t=>t.addEventListener('click',()=>
   document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
   document.getElementById('tab-'+t.dataset.tab).classList.add('active');
-}));
-document.querySelectorAll('.yr').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('.yr').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active'); selYear=b.dataset.year; histPage=0; renderHistorial();
 }));
 
 // ─── TOAST ───────────────────────────────────────────────────────
