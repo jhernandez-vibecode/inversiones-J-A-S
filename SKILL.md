@@ -7,16 +7,16 @@ description: ESPECIALISTA EN INVERSIONES J-A-S — App web personal de Juan Carl
 
 Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin perder contexto.
 
-## Checkpoint 14 may 2026 (v1.3 — ranking de rendimiento en Fondos)
+## Checkpoint 11 jun 2026 (v1.4 — hardening: auditoría completa + revisión adversaria)
 
 ### Estado del proyecto
 - **Producción:** Netlify (URL `*.netlify.app` — JC tiene la URL exacta) — auto-deploy desde `main`
 - **Repo:** https://github.com/jhernandez-vibecode/inversiones-J-A-S
 - **Local:** `C:\Users\segur\Documents\GitHub\inversiones-J-A-S\`
 - **Rama activa:** `main`
-- **Último commit (código):** `edb47cb` — feat: ranking de Fondos suma KPIs de total acumulado + promedio mensual
+- **Último commit (código):** `6aab6a4` — fix: v1.4 hardening — auditoría completa + revisión adversaria (16 hallazgos)
 - **OAuth Client ID** (Google Cloud): `446215450096-i2s3glor63qodpf3t12ogdgunedqgp27.apps.googleusercontent.com`
-- **Tamaño actual:** ~2592 líneas index.html
+- **Tamaño actual:** ~2572 líneas index.html
 
 ### Qué está en producción
 
@@ -40,7 +40,7 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 - pdfjs-dist v3.11 (parser PDF estados de cuenta BN)
 - Google Identity Services (GIS) — auth Gmail
 - Google Sheets API v4 — persistencia
-- localStorage para `inv_sheet_id_v2` (cache del sheet ID por usuario) y `inv_user_v2` (cache user info)
+- localStorage para el sheet ID **por usuario**: clave `inv_sheet_id_v2::<email>` (v1.4; la clave legacy `inv_sheet_id_v2` sin email se adopta automáticamente si el usuario tiene acceso a ese sheet) + sessionStorage `inv_user_v2` (cache user info)
 - **Sin build step** — todo CDN
 
 ## Estructura de archivos
@@ -68,7 +68,7 @@ Otras cuentas reciben "Acceso denegado".
 
 ## Persistencia: Google Sheet "Control de Inversiones JC"
 
-Se crea automáticamente en el primer login de cada usuario. ID guardado en `localStorage.inv_sheet_id_v2`.
+Se crea automáticamente en el primer login de cada usuario. ID guardado en `localStorage` bajo `inv_sheet_id_v2::<email>` (v1.4 — clave por usuario; en cada login se valida el acceso al sheet con la API y si fue borrado/inaccesible se crea uno nuevo. La clave legacy compartida se adopta si es accesible con el token del usuario).
 
 **10 hojas (sheets) — orden y headers:**
 
@@ -184,6 +184,7 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 | **v1.1** | 28 abr 2026 | **Pestaña Gastos Fijos** — 19 gastos seed · KPIs total/Q1/Q2/% pagado · toggle pagado interactivo · histórico mensual · pagos ocasionales · modal editar · 3 hojas nuevas. Commit `dcce5ab` |
 | **v1.2** | 2 may 2026 | **Multi-titular en HISTORIAL + Filtros + UX fixes**. Hilo completo: <br>• `fix: parser PDF reconoce fondo correctamente y propaga saldo a pestaña Fondos` (`5f2eded`) — antes capturaba "BN Sociedad Administradora..." como nombre del fondo<br>• `feat: editar nombre de fondos + botón eliminar registros del historial` (`bc1c2f6`)<br>• `fix: dropdown Reemplazar/Saltar en importar PDF re-renderiza para mostrar el botón Importar` (`7383206`)<br>• `feat: fecha de import en historial + filtro de movimientos por fondo` (`bbe3e00`)<br>• `feat: HISTORIAL distingue JC vs Alba por titular en fondos compartidos` (`9f2fa3e`)<br>• `fix: filtro Movimientos muestra saldo actual del fondo + arregla duplicación de líneas` (`450fe76`)<br>• `fix: gráficos Dashboard e Historial muestran las 4 series siempre` (`344a2ac`) |
 | **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card nueva debajo de la tabla de fondos. Hilo: <br>• `feat: ranking de rendimiento en pestaña Fondos (v1.3)` (`ea90468`) — toggle métrica tasa%/ganancias + toggle período mes/año + selectores dinámicos año/mes (solo con datos) + ranking DESC con medallas 🥇🥈🥉 + empty state. Tasa anual = compuesto ∏(1+t/100)−1. Ganancias en USD equiv. usando `toUSD()`. Reutiliza `matchHistorialFondo()` para respetar multi-titular v1.2.<br>• `feat: ranking de Fondos suma KPIs de total acumulado + promedio mensual` (`edb47cb`) — cuando la métrica es ganancias, aparecen 2 KPIs arriba de la tabla: 💰 Total acumulado (Σ ganancias del período) + 📊 Promedio mensual (total ÷ meses con datos en HISTORIAL). En vista mensual N=1 y se aclara en sub-texto. En vista anual usa solo meses con datos, no ÷12, así no se diluye con meses futuros. |
+| **v1.4** | 11 jun 2026 | **Hardening total** (`6aab6a4`) — auditoría línea por línea + revisión adversaria multi-agente (16 hallazgos confirmados, 0 refutados). <br>**Datos:** Restaurar Excel limpia las 10 hojas (antes 7) · `loadFromSheets` aborta si CUALQUIER lectura falla (`shGetSafe` devuelve `null`, nunca `[]`) para que el autofill jamás pise datos reales · `shClear` lanza en error · try/catch+toast en los 6 saves de modales. <br>**Auth:** sheet ID por usuario `inv_sheet_id_v2::<email>` + validación de acceso en cada login + adopción de clave legacy · renovación automática de token en 401 (`authFetch` + `refreshAccessToken` singleton con timeout 15s por identidad + `error_callback` + `hint` de cuenta en TODOS los `requestAccessToken`) · `showApp` corre DESPUÉS de resolver el sheet · errores siempre visibles (toast si app abierta, `#loginError` si no). <br>**Fechas:** `parseFechaLocal`/`fmtFecha` (CR es UTC-6: `2026-12-01` ya no se muestra como 30 nov) · `hoyLocal()` en fecha_aplicado/fecha_import/nombre Excel (toISOString daba el día siguiente después de 6pm) · CDP sin fecha → badge "Sin fecha". <br>**UI:** Dashboard excluye CDPs aplicados de KPI/donut/Patrimonio/tabla (`cdpVig`) y `markCDP` llama `renderAll()` · años dinámicos en Historial (`histYearRow`/`setHistYear`), modal Registrar mes y gráfico Dashboard (cero años hardcodeados) · `escAttr` en todos los value de formularios · Excel exporta Estado + Fecha Aplicado de CDPs. <br>**Nota:** quedó anotado como deuda conocida (no bloqueante): `saveSection` clear→write no atómico, y escape de texto HTML (self-XSS) fuera de atributos. |
 
 ## Reglas de desarrollo
 
