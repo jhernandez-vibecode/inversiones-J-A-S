@@ -7,16 +7,17 @@ description: ESPECIALISTA EN INVERSIONES J-A-S — App web personal de Juan Carl
 
 Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin perder contexto.
 
-## Checkpoint 11 jun 2026 (v1.4 — hardening: auditoría completa + revisión adversaria)
+## Checkpoint 17 jul 2026 (v1.5 — la hoja de datos se descubre, no se inventa)
 
 ### Estado del proyecto
 - **Producción:** Netlify (URL `*.netlify.app` — JC tiene la URL exacta) — auto-deploy desde `main`
 - **Repo:** https://github.com/jhernandez-vibecode/inversiones-J-A-S
 - **Local:** `C:\Users\segur\Documents\GitHub\inversiones-J-A-S\`
 - **Rama activa:** `main`
-- **Último commit (código):** `6aab6a4` — fix: v1.4 hardening — auditoría completa + revisión adversaria (16 hallazgos)
+- **Último commit (código):** `0e0e8f6` — fix: v1.5 — la app nunca más inventa una hoja (auto-descubrimiento en Drive)
+- **Hoja de datos real de JC:** `10PPnb3czhFs0DHn1KF6LDd6xmVFWjG2SL0TRIShk9bQ` (creada 24 abr 2026)
 - **OAuth Client ID** (Google Cloud): `446215450096-i2s3glor63qodpf3t12ogdgunedqgp27.apps.googleusercontent.com`
-- **Tamaño actual:** ~2572 líneas index.html
+- **Tamaño actual:** ~2892 líneas index.html
 
 ### Qué está en producción
 
@@ -184,7 +185,54 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 | **v1.1** | 28 abr 2026 | **Pestaña Gastos Fijos** — 19 gastos seed · KPIs total/Q1/Q2/% pagado · toggle pagado interactivo · histórico mensual · pagos ocasionales · modal editar · 3 hojas nuevas. Commit `dcce5ab` |
 | **v1.2** | 2 may 2026 | **Multi-titular en HISTORIAL + Filtros + UX fixes**. Hilo completo: <br>• `fix: parser PDF reconoce fondo correctamente y propaga saldo a pestaña Fondos` (`5f2eded`) — antes capturaba "BN Sociedad Administradora..." como nombre del fondo<br>• `feat: editar nombre de fondos + botón eliminar registros del historial` (`bc1c2f6`)<br>• `fix: dropdown Reemplazar/Saltar en importar PDF re-renderiza para mostrar el botón Importar` (`7383206`)<br>• `feat: fecha de import en historial + filtro de movimientos por fondo` (`bbe3e00`)<br>• `feat: HISTORIAL distingue JC vs Alba por titular en fondos compartidos` (`9f2fa3e`)<br>• `fix: filtro Movimientos muestra saldo actual del fondo + arregla duplicación de líneas` (`450fe76`)<br>• `fix: gráficos Dashboard e Historial muestran las 4 series siempre` (`344a2ac`) |
 | **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card nueva debajo de la tabla de fondos. Hilo: <br>• `feat: ranking de rendimiento en pestaña Fondos (v1.3)` (`ea90468`) — toggle métrica tasa%/ganancias + toggle período mes/año + selectores dinámicos año/mes (solo con datos) + ranking DESC con medallas 🥇🥈🥉 + empty state. Tasa anual = compuesto ∏(1+t/100)−1. Ganancias en USD equiv. usando `toUSD()`. Reutiliza `matchHistorialFondo()` para respetar multi-titular v1.2.<br>• `feat: ranking de Fondos suma KPIs de total acumulado + promedio mensual` (`edb47cb`) — cuando la métrica es ganancias, aparecen 2 KPIs arriba de la tabla: 💰 Total acumulado (Σ ganancias del período) + 📊 Promedio mensual (total ÷ meses con datos en HISTORIAL). En vista mensual N=1 y se aclara en sub-texto. En vista anual usa solo meses con datos, no ÷12, así no se diluye con meses futuros. |
+| **v1.5** | 17 jul 2026 | **La app nunca más inventa una hoja** (`0e0e8f6`) — a raíz del incidente CCleaner del 17 jul (ver sección "La hoja de datos se descubre, no se inventa"). `buscarHojasApp()` + `esHojaInversiones()` + `resumenHoja()` + `pedirHoja()` + `conectarHoja()` + `openHojaPanel()`. Login: sin caché se le pregunta a Drive; 1 hoja se reconecta sola, varias se eligen, ninguna se ofrece crear. Nuevo botón **🔗 Hoja** en el header. Modal `ovHoja` (fuera de `#app`, visible en login). `♻️ Restaurar Excel` pide escribir `RESTAURAR`. Global `USER_KEY`. |
 | **v1.4** | 11 jun 2026 | **Hardening total** (`6aab6a4`) — auditoría línea por línea + revisión adversaria multi-agente (16 hallazgos confirmados, 0 refutados). <br>**Datos:** Restaurar Excel limpia las 10 hojas (antes 7) · `loadFromSheets` aborta si CUALQUIER lectura falla (`shGetSafe` devuelve `null`, nunca `[]`) para que el autofill jamás pise datos reales · `shClear` lanza en error · try/catch+toast en los 6 saves de modales. <br>**Auth:** sheet ID por usuario `inv_sheet_id_v2::<email>` + validación de acceso en cada login + adopción de clave legacy · renovación automática de token en 401 (`authFetch` + `refreshAccessToken` singleton con timeout 15s por identidad + `error_callback` + `hint` de cuenta en TODOS los `requestAccessToken`) · `showApp` corre DESPUÉS de resolver el sheet · errores siempre visibles (toast si app abierta, `#loginError` si no). <br>**Fechas:** `parseFechaLocal`/`fmtFecha` (CR es UTC-6: `2026-12-01` ya no se muestra como 30 nov) · `hoyLocal()` en fecha_aplicado/fecha_import/nombre Excel (toISOString daba el día siguiente después de 6pm) · CDP sin fecha → badge "Sin fecha". <br>**UI:** Dashboard excluye CDPs aplicados de KPI/donut/Patrimonio/tabla (`cdpVig`) y `markCDP` llama `renderAll()` · años dinámicos en Historial (`histYearRow`/`setHistYear`), modal Registrar mes y gráfico Dashboard (cero años hardcodeados) · `escAttr` en todos los value de formularios · Excel exporta Estado + Fecha Aplicado de CDPs. <br>**Nota:** quedó anotado como deuda conocida (no bloqueante): `saveSection` clear→write no atómico, y escape de texto HTML (self-XSS) fuera de atributos. |
+
+## 🔴 La hoja de datos se descubre, no se inventa (v1.5 — 17 jul 2026)
+
+**Invariante:** el `localStorage` es un **caché** de la dirección de la hoja, NUNCA la fuente
+de la verdad. La fuente de la verdad es **Drive**. Un limpiador de disco (CCleaner, "borrar
+datos de navegación") borra el caché sin aviso y sin vuelta atrás; Drive sobrevive.
+
+**El incidente (17 jul 2026):** CCleaner borró `inv_sheet_id_v2::<email>`. La app concluyó
+"no hay ID → usuario nuevo → creo hoja", creó `1CLjNtO…` y la sembró con `DEFAULT`. Como
+`DEFAULT` es el portafolio real hardcodeado de cuando se armó la app, JC no vio una hoja
+vacía: vio **su portafolio atrasado a abril**, y creyó que se había borrado la data. La hoja
+buena (`10PPnb3…`, historial hasta JUNIO 2026) siguió intacta en Drive todo el tiempo.
+Recuperación: reapuntar el `localStorage` al ID viejo.
+
+**Flujo de resolución del sheet en `handleToken` (no romper):**
+1. Caché por usuario → `sheetAccesible()` → usar.
+2. Clave legacy → validar → usar.
+3. **`buscarHojasApp()`** (Drive `files.list`, scope `drive.file` ⇒ solo hojas de esta app),
+   filtrado por **`esHojaInversiones()`** (debe tener tabs CONFIG+FONDOS+HISTORIAL).
+   - **1 hoja** → se adopta sola + toast "Reconecté tu hoja". *Este es el caso del CCleaner:
+     se auto-cura y JC ni se entera.*
+   - **>1** → `pedirHoja()`, JC elige.
+   - **0** → recién ahí se ofrece crear.
+4. **Nunca crear sin confirmación explícita.** Este punto solo habría evitado el incidente.
+
+**Trampas ya pisadas — no repetirlas:**
+- ❌ **No desempatar por fecha de modificación.** El 17 jul la hoja inventada era la más
+  reciente y la buena parecía la vieja. El criterio útil es **cuánto historial trae y hasta
+  qué mes llega** (`resumenHoja()`), que es lo que muestra el selector.
+- ❌ **No filtrar por nombre** en `buscarHojasApp()`: renombrar la hoja la volvería invisible.
+  El filtro correcto es estructural (`esHojaInversiones`).
+- ❌ **`#ovHoja` NO puede cerrarse solo quitando la clase `open`.** Es una promesa que el
+  login está esperando: hay que resolverla (`_hojaCerrar`) o el `await` queda colgado y JC
+  ve un login muerto. Por eso está excluido del listener genérico de `.ov`.
+- ⚠️ **La API de Drive es nueva en esta app** (la hoja se crea con la de *Sheets*). El scope
+  `drive.file` ≠ API habilitada. Si está apagada en el proyecto Cloud `446215450096`,
+  `files.list` da 403 y el auto-descubrimiento muere. `buscarHojasApp()` traduce ese 403 a
+  un mensaje accionable.
+- ⚠️ **`CLIENT_ID` debe seguir siendo exclusivo de esta app.** `drive.file` es por Client ID:
+  si se reusa en otra app que cree hojas, aparecerían aquí. `esHojaInversiones()` es el
+  candado, pero la regla sigue viva. (Verificado 17 jul: Control-Comisiones usa un Client ID
+  distinto y ni siquiera pide `drive.file`.)
+
+**`♻️ Restaurar Excel` es la otra puerta al desastre:** borra las 10 hojas y siembra `DEFAULT`.
+Desde v1.5 pide escribir `RESTAURAR`. El `emptyBanner` del Dashboard también lo llama, pero
+es **UI muerta** (`loadFromSheets` siempre lo esconde y nada lo muestra).
 
 ## Reglas de desarrollo
 
