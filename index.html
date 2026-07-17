@@ -215,6 +215,16 @@ tr:hover td{background:#fafbff}
 .fb{border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
 .fb-n{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px}
 
+/* HOJA DE DATOS (selector de spreadsheet) */
+.hoja-c{border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.hoja-c.is-cur{border-color:var(--cyan);background:#f0f9ff}
+.hoja-n{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hoja-m{font-size:11px;color:var(--muted);margin-bottom:8px}
+.hoja-h{font-size:13px;color:var(--text);margin-bottom:12px}
+.hoja-h b{color:var(--navy)}
+.hoja-msg{font-size:13px;color:var(--muted);padding:8px 0 16px}
+
 /* YEAR / MISC */
 .yr-row{display:flex;gap:8px;margin-bottom:20px}
 .yr{padding:8px 22px;border-radius:10px;border:1px solid var(--border);background:#fff;
@@ -352,7 +362,8 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
     <div class="hr">
       <button class="btn-hdr btn-hdr-green" onclick="exportExcel()">⬇️ Excel</button>
       <button class="btn-hdr" onclick="syncSheets()">🔄 Sync</button>
-      <button class="btn-hdr" onclick="reseedDefaults()" title="Borra el sheet y repuebla con los datos del Excel original">♻️ Restaurar Excel</button>
+      <button class="btn-hdr" onclick="openHojaPanel()" title="Ver o cambiar la hoja de Google Sheets conectada">🔗 Hoja</button>
+      <button class="btn-hdr" onclick="reseedDefaults()" title="PELIGRO: borra la hoja y la repuebla con los datos de ejemplo">♻️ Restaurar Excel</button>
       <div class="upill">
         <img class="uavatar" id="uavatar" src="" alt="">
         <span class="uname" id="uname"></span>
@@ -756,6 +767,18 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
   </div>
 </div>
 
+<!-- MODAL HOJA DE DATOS (fuera de #app: debe verse también en la pantalla de login) -->
+<div class="ov" id="ovHoja">
+  <div class="m">
+    <div class="mt" id="hojaTitle">🔗 Hoja de datos</div>
+    <div id="hojaBody"></div>
+    <div class="mf">
+      <button class="btn-secondary" onclick="_hojaCerrar('')">Cancelar</button>
+      <button class="btn-secondary" id="hojaNueva" onclick="_hojaCerrar('__nueva__')">➕ Crear hoja nueva</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><span id="toastMsg"></span></div>
 
 <script>
@@ -864,6 +887,7 @@ const DEFAULT = {
 // ─── STATE ───────────────────────────────────────────────────────
 let ACCESS_TOKEN = '';
 let SHEET_ID     = '';   // se resuelve por usuario al iniciar sesión (clave inv_sheet_id_v2::<email>)
+let USER_KEY     = '';   // clave de caché del usuario logueado (inv_sheet_id_v2::<email>)
 let D            = null;
 let selYear      = String(new Date().getFullYear());
 let histPage     = 0;
@@ -973,6 +997,124 @@ async function sheetAccesible(id){
   if(r.ok) return true;
   if(r.status===403 || r.status===404) return false;
   throw new Error('No se pudo verificar el spreadsheet ('+r.status+')');
+}
+
+// ─── HOJA DE DATOS: descubrimiento en Drive ─────────────────────
+// El localStorage es solo un CACHÉ de la dirección de la hoja, nunca la fuente de la
+// verdad: un limpiador de disco lo borra sin aviso (CCleaner, 17 jul 2026) y la app
+// concluía "no hay papelito → usuario nuevo → creo hoja", dejando el portafolio real
+// huérfano en Drive. La fuente de la verdad es Drive, que sí sobrevive la limpieza.
+
+// Con scope drive.file, Google solo devuelve los archivos que ESTA app creó: la lista
+// es exactamente "las hojas de Inversiones". No se ve nada más del Drive del usuario.
+// Sin filtro de nombre a propósito, para que renombrar la hoja no la vuelva invisible.
+async function buscarHojasApp(){
+  const q = "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false";
+  const r = await authFetch('https://www.googleapis.com/drive/v3/files'
+    + '?q=' + encodeURIComponent(q)
+    + '&fields=' + encodeURIComponent('files(id,name,createdTime,modifiedTime)')
+    + '&orderBy=createdTime&pageSize=50');
+  // Primera vez que esta app toca la API de Drive (la hoja se crea con la de Sheets):
+  // si está apagada en Google Cloud, el 403 es críptico. Que diga qué hacer.
+  if(!r.ok){
+    const detalle = await r.text().catch(()=>'');
+    if(r.status===403 && /has not been used|is disabled|accessNotConfigured/i.test(detalle))
+      throw new Error('La API de Drive está apagada en Google Cloud. Habilitala en el proyecto 446215450096 y reintentá.');
+    throw new Error('No se pudo consultar Drive ('+r.status+')');
+  }
+  const files = (await r.json()).files || [];
+  const ok = await Promise.all(files.map(f=>esHojaInversiones(f.id)));
+  return files.filter((f,i)=>ok[i]);
+}
+
+// Conectarse solo es seguro si la hoja es DE VERDAD de Inversiones. Hoy el Client ID es
+// exclusivo de esta app y drive.file no puede devolver otra cosa — pero eso es cierto por
+// coincidencia, no por diseño: si el Client ID se reusa en otra app que cree hojas,
+// adoptar a ciegas la sembraría con los datos de ejemplo y la corrompería en silencio.
+async function esHojaInversiones(id){
+  try{
+    const r = await authFetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties.title`);
+    if(!r.ok) return false;
+    const tabs = ((await r.json()).sheets||[]).map(s=>s.properties.title);
+    return ['CONFIG','FONDOS','HISTORIAL'].every(t=>tabs.includes(t));
+  }catch(e){ return false; }
+}
+
+// Lo único que de verdad distingue una hoja de otra para JC: cuánto historial trae y
+// hasta qué mes llega. La fecha de modificación NO sirve como criterio — el 17 jul la
+// hoja recién inventada era la más reciente y la buena parecía la vieja.
+async function resumenHoja(id){
+  try{
+    const r = await authFetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/HISTORIAL!A2:B`);
+    if(!r.ok) return {n:0, hasta:null};
+    const rows = (await r.json()).values || [];
+    let best = null;
+    for(const row of rows){
+      const anio = parseInt(row[0],10);
+      const mi   = MESES_ES.indexOf(String(row[1]||'').trim().toUpperCase());
+      if(!anio || mi<1) continue;
+      const k = anio*100 + mi;
+      if(!best || k>best.k) best = {k, txt:MESES_ES[mi]+' '+anio};
+    }
+    return {n:rows.length, hasta:best?best.txt:null};
+  }catch(e){ return {n:0, hasta:null}; }
+}
+
+// Modal como promesa: resuelve con el id elegido, '__nueva__' para crear, o '' si cancela.
+let _hojaResolve = null;
+function _hojaCerrar(val){
+  document.getElementById('ovHoja').classList.remove('open');
+  const r = _hojaResolve; _hojaResolve = null;
+  if(r) r(val);
+}
+async function pedirHoja(hojas, actual){
+  const body = document.getElementById('hojaBody');
+  document.getElementById('hojaTitle').textContent =
+    hojas.length ? '🔗 Elegí tu hoja de datos' : '🔗 No encontré ninguna hoja';
+  body.innerHTML = '<div class="hoja-msg">Revisando tus hojas…</div>';
+  document.getElementById('ovHoja').classList.add('open');
+  const espera = new Promise(res=>{ _hojaResolve = res; });
+
+  const res = await Promise.all(hojas.map(h=>resumenHoja(h.id)));
+  body.innerHTML = hojas.length ? hojas.map((h,i)=>`
+    <div class="hoja-c ${h.id===actual?'is-cur':''}">
+      <div class="hoja-n">${escAttr(h.name)}${h.id===actual?'<span class="b b-blue">Conectada</span>':''}</div>
+      <div class="hoja-m">Creada ${fmtFecha(h.createdTime)} · Último cambio ${fmtFecha(h.modifiedTime)}</div>
+      <div class="hoja-h">${res[i].n
+        ? `<b>${res[i].n}</b> registros de historial · hasta <b>${escAttr(res[i].hasta||'—')}</b>`
+        : 'Sin historial'}</div>
+      <button class="btn-primary" onclick="_hojaCerrar('${escAttr(h.id)}')"
+        ${h.id===actual?'disabled style="opacity:.45;cursor:default"':''}>
+        ${h.id===actual?'Ya conectada':'Conectar esta'}</button>
+    </div>`).join('')
+    : `<div class="hoja-msg">No hay ninguna hoja de datos creada por la app en tu Drive.
+       Si ya tenías una, revisá la papelera antes de crear una nueva.</div>`;
+  return espera;
+}
+
+// Punto único de conexión: valida, cachea y deja SHEET_ID listo.
+function conectarHoja(id){
+  SHEET_ID = id;
+  if(USER_KEY) localStorage.setItem(USER_KEY, id);
+}
+
+// Botón 🔗 Hoja del header: ver a cuál estoy conectado y cambiarla sin consola.
+async function openHojaPanel(){
+  try{
+    const hojas = await buscarHojasApp();
+    const el = await pedirHoja(hojas, SHEET_ID);
+    if(!el || el===SHEET_ID) return;
+    if(el==='__nueva__'){
+      if(!confirm('¿Crear una hoja NUEVA y vacía?\n\nTu hoja actual no se toca, pero la app dejará de usarla.')) return;
+      toast('Creando hoja de cálculo…', false);
+      conectarHoja(await createSpreadsheet());
+      await populateSheet();
+    } else {
+      conectarHoja(el);
+    }
+    await loadFromSheets();
+    toast('✅ Hoja conectada');
+  }catch(e){ toast('❌ '+e.message, true); }
 }
 
 async function ensureTabsExist(){
@@ -1191,22 +1333,34 @@ async function handleToken(resp) {
     // (La clave legacy compartida hacía que un segundo usuario en el mismo navegador
     //  intentara usar el sheet del primero y recibiera 403.)
     // showApp() corre DESPUÉS: si esto falla, el error se ve en la pantalla de login.
-    const userKey = LS_SID+'::'+user.email;
-    let sid = localStorage.getItem(userKey)||'';
+    USER_KEY = LS_SID+'::'+user.email;
+    let sid = localStorage.getItem(USER_KEY)||'';
     if(sid && !(await sheetAccesible(sid))) sid = '';
     if(!sid){
       const legacy = localStorage.getItem(LS_SID)||'';
       if(legacy && await sheetAccesible(legacy)) sid = legacy;
     }
-    if(sid){
-      SHEET_ID = sid;
-      localStorage.setItem(userKey, sid);
-    } else {
-      toast('Creando hoja de cálculo…', false);
-      SHEET_ID = await createSpreadsheet();
-      localStorage.setItem(userKey, SHEET_ID);
-      await populateSheet();
+    // Sin caché NO se asume usuario nuevo: se le pregunta a Drive, que sí sobrevive a
+    // un CCleaner. Una sola hoja = se reconecta sola y JC ni se entera. Varias = elige
+    // él (adivinar por fecha conectaría a la equivocada). Ninguna = recién ahí se ofrece
+    // crear. Crear una hoja dejó de ser un reflejo y pasó a ser el último recurso.
+    if(!sid){
+      const hojas = await buscarHojasApp();
+      if(hojas.length===1){
+        sid = hojas[0].id;
+        toast('🔗 Reconecté tu hoja de datos');
+      } else {
+        const el = await pedirHoja(hojas, '');
+        if(el==='__nueva__'){
+          toast('Creando hoja de cálculo…', false);
+          SHEET_ID = await createSpreadsheet();   // populateSheet() escribe sobre SHEET_ID
+          await populateSheet();
+          sid = SHEET_ID;
+        } else sid = el;
+      }
     }
+    if(!sid){ showErr('No se conectó ninguna hoja de datos. Recargá la página para intentarlo de nuevo.'); return; }
+    conectarHoja(sid);
     showApp(user);
     await loadFromSheets();
   } catch(e) {
@@ -1236,8 +1390,14 @@ document.getElementById('btnOut').onclick = ()=>{
 
 async function syncSheets() { await loadFromSheets(); }
 
+// Un confirm() de un clic protegía mal la única acción que borra TODO el portafolio.
+// Escribir la palabra obliga a leer lo que se está por hacer.
 async function reseedDefaults(){
-  if(!confirm('¿Reemplazar TODO el spreadsheet con los datos por defecto del Excel original?\n\nEsto borra cualquier cambio que hayas hecho.')) return;
+  const txt = prompt(
+    '⚠️ PELIGRO — esto BORRA las 10 hojas y las reemplaza con los datos de ejemplo del código.\n\n'+
+    'Perdés tu historial, tus saldos y tus pagos de quincena. No se puede deshacer.\n\n'+
+    'Si de verdad querés hacerlo, escribí:  RESTAURAR');
+  if((txt||'').trim().toUpperCase()!=='RESTAURAR') return;
   toast('Repoblando datos…', false);
   try{
     await ensureTabsExist();   // una tab faltante haría fallar su shClear y abortaría el reseed
@@ -1837,7 +1997,11 @@ function openMod(k){
   document.getElementById(MOD_MAP[k]).classList.add('open');
 }
 function closeMod(k){document.getElementById(MOD_MAP[k]).classList.remove('open');}
-document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('open');}));
+// ovHoja se excluye: no es un modal cualquiera, es una promesa que el login está
+// esperando. Cerrarlo solo por clase dejaría el await colgado para siempre y a JC
+// mirando un login muerto. Tiene que resolver, aunque sea con ''.
+document.querySelectorAll('.ov:not(#ovHoja)').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('open');}));
+document.getElementById('ovHoja').addEventListener('click',e=>{if(e.target.id==='ovHoja') _hojaCerrar('');});
 
 const titularOptions = (sel)=> TITULARES.map(t=>`<option ${sel===t?'selected':''}>${t}</option>`).join('');
 const delBtn = (fn,id) => `<button type="button" class="btn-del" onclick="${fn}('${id}')" title="Eliminar">🗑</button>`;
