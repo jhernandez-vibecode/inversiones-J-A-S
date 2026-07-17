@@ -34,21 +34,21 @@ Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin pe
 ---
 
 ## Stack técnico
-- HTML + Vanilla JS (single-file, ~2592 líneas)
+- HTML + Vanilla JS (single-file, ~2892 líneas)
 - Outfit (Google Fonts) — toda la tipografía
 - Chart.js v4.4 (donut + line)
 - SheetJS v0.18 (export Excel `.xlsx`)
 - pdfjs-dist v3.11 (parser PDF estados de cuenta BN)
 - Google Identity Services (GIS) — auth Gmail
 - Google Sheets API v4 — persistencia
-- localStorage para el sheet ID **por usuario**: clave `inv_sheet_id_v2::<email>` (v1.4; la clave legacy `inv_sheet_id_v2` sin email se adopta automáticamente si el usuario tiene acceso a ese sheet) + sessionStorage `inv_user_v2` (cache user info)
+- localStorage = **caché** del sheet ID por usuario: `inv_sheet_id_v2::<email>` (v1.4). Desde **v1.5 la fuente de la verdad es Drive**: si el caché no está, la hoja se descubre con `files.list` y NUNCA se inventa. + sessionStorage `inv_user_v2` (cache user info)
 - **Sin build step** — todo CDN
 
 ## Estructura de archivos
 
 ```
 inversiones-J-A-S/
-├── index.html                       # App completa SPA (~2592 líneas tras v1.3)
+├── index.html                       # App completa SPA (~2892 líneas tras v1.5)
 ├── README.md                        # Descripción breve del proyecto
 ├── SKILL.md                         # Este archivo (sync con ~/.claude/skills/.../SKILL.md)
 └── mockup-gastos-fijos.html         # Mockup intermedio v1.1 (untracked, se puede borrar)
@@ -69,7 +69,12 @@ Otras cuentas reciben "Acceso denegado".
 
 ## Persistencia: Google Sheet "Control de Inversiones JC"
 
-Se crea automáticamente en el primer login de cada usuario. ID guardado en `localStorage` bajo `inv_sheet_id_v2::<email>` (v1.4 — clave por usuario; en cada login se valida el acceso al sheet con la API y si fue borrado/inaccesible se crea uno nuevo. La clave legacy compartida se adopta si es accesible con el token del usuario).
+ID **cacheado** en `localStorage` bajo `inv_sheet_id_v2::<email>` (v1.4 — clave por usuario; se valida el acceso en cada login. La clave legacy compartida se adopta si es accesible con el token del usuario).
+
+⚠️ **Desde v1.5 el caché NO es la fuente de la verdad: Drive lo es.** Si el caché no está (CCleaner,
+"borrar datos de navegación"), la hoja **se descubre en Drive**; sólo se crea una nueva si no existe
+ninguna Y JC lo confirma. Ver la sección *"La hoja de datos se descubre, no se inventa"* — es el
+invariante más importante del proyecto y nació de un incidente real.
 
 **10 hojas (sheets) — orden y headers:**
 
@@ -98,7 +103,11 @@ Se crea automáticamente en el primer login de cada usuario. ID guardado en `loc
 |-----|-----|-----------|------|
 | **Google Identity Services** | Login con whitelist | n/a | Client ID público |
 | **Google Sheets API v4** | Persistencia (read/write) | sí | OAuth scope spreadsheets |
-| **Google Drive API** | Crear el sheet la 1ra vez | sí | OAuth scope drive.file |
+| **Google Drive API** | `files.list` — descubrir las hojas de la app (v1.5) | sí | OAuth scope drive.file |
+
+⚠️ El sheet se **crea con la API de Sheets** (`POST sheets.googleapis.com/v4/spreadsheets`), no con la
+de Drive. La API de **Drive** se empezó a usar en v1.5 y sólo para `files.list`: si está apagada en el
+proyecto Cloud `446215450096`, el auto-descubrimiento muere con 403 (scope ≠ API habilitada).
 
 ## Diseño visual
 
