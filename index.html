@@ -225,6 +225,11 @@ tr:hover td{background:#fafbff}
 .hoja-h b{color:var(--navy)}
 .hoja-msg{font-size:13px;color:var(--muted);padding:8px 0 16px}
 
+/* SALDO PROVISIONAL */
+.prov-tag{margin-top:4px;font-size:10.5px;font-weight:700;color:#b45309;background:#fffbeb;
+  border:1px solid #fcd34d;border-radius:6px;padding:2px 6px;display:inline-block;white-space:nowrap}
+.prov-tag a{color:#b45309;text-decoration:underline;cursor:pointer;margin-left:2px}
+
 /* YEAR / MISC */
 .yr-row{display:flex;gap:8px;margin-bottom:20px}
 .yr{padding:8px 22px;border-radius:10px;border:1px solid var(--border);background:#fff;
@@ -403,6 +408,7 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
       <div class="sh"><div><div class="st">Fondos de Inversión</div>
         <div class="sd">Saldos actuales</div></div>
         <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="openMod('provisional')">🕑 Saldo al día</button>
           <button class="btn-add" onclick="openMod('addFondo')">➕ Agregar fondo</button>
           <button class="btn btn-outline" onclick="openMod('fondos')">✏️ Editar</button>
         </div></div>
@@ -621,6 +627,21 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
     </div>
     <div class="mf"><button class="btn-secondary" onclick="closeMod('addFondo')">Cancelar</button>
       <button class="btn-primary" onclick="addFondo()">Agregar</button></div>
+  </div>
+</div>
+
+<!-- MODAL SALDO PROVISIONAL -->
+<div class="ov" id="ovProvisional">
+  <div class="m"><div class="mt">🕑 Saldo al día (provisional)</div>
+    <div class="info-box">Anotá el <b>saldo total que ves hoy en el banco</b>. Se refleja al instante en el Dashboard y queda marcado como <b>provisional</b> hasta que cargués el estado de cuenta de fin de mes, que lo confirma y manda.</div>
+    <div class="fg"><label class="fl">Fondo</label>
+      <select class="fi" id="pvFondo" onchange="pvSyncActual()"></select></div>
+    <div class="fg"><label class="fl">Saldo mostrado ahora</label>
+      <input class="fi" id="pvActual" disabled style="background:#f8fafc;color:var(--muted)"></div>
+    <div class="fg"><label class="fl">Saldo actual (lo que ves en el banco)</label>
+      <input class="fi" type="number" step="0.01" id="pvSaldo" placeholder="0"></div>
+    <div class="mf"><button class="btn-secondary" onclick="closeMod('provisional')">Salir</button>
+      <button class="btn-primary" onclick="saveProvisional()">Guardar provisional</button></div>
   </div>
 </div>
 
@@ -1136,7 +1157,7 @@ async function ensureTabsExist(){
 function defaultPayload(){
   return {
     CONFIG:    [['tipo_cambio','updated'],[DEFAULT.tipo_cambio, new Date().toISOString()]],
-    FONDOS:    [['id','nombre','titular','saldo','moneda','tipo','vence'],...DEFAULT.fondos],
+    FONDOS:    [FONDOS_HDR,...DEFAULT.fondos],
     CDP:       [['id','nombre','titular','saldo','vence','estado','fecha_aplicado'],...DEFAULT.cdp],
     POLIZAS:   [['id','nombre','titular','monto','moneda','ahorro','tipo'],...DEFAULT.polizas],
     BIENES:    [['id','nombre','tipo','valor','detalle','icon'],...DEFAULT.bienes],
@@ -1190,7 +1211,7 @@ async function loadFromSheets() {
   toast('Cargando datos…', false);
   try {
     let reads = await Promise.all([
-      shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
+      shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:H'), shGetSafe('CDP!A:G'),
       shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:L'),
       shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
     ]);
@@ -1219,7 +1240,7 @@ async function loadFromSheets() {
         throw e;
       }
       reads = await Promise.all([
-        shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:G'), shGetSafe('CDP!A:G'),
+        shGetSafe('CONFIG!A1:B2'), shGetSafe('FONDOS!A:H'), shGetSafe('CDP!A:G'),
         shGetSafe('POLIZAS!A:G'), shGetSafe('BIENES!A:F'), shGetSafe('CUENTAS!A:E'), shGetSafe('HISTORIAL!A:L'),
         shGetSafe('GASTOS_FIJOS!A:E'), shGetSafe('PAGOS_QUINCENA!A:D'), shGetSafe('OCASIONALES!A:G')
       ]);
@@ -1241,7 +1262,7 @@ async function loadFromSheets() {
       ocasionales:    rowsToObjs(ocas)
     };
     // Coerce numbers
-    D.fondos.forEach(f=>{f.saldo=+f.saldo||0});
+    D.fondos.forEach(f=>{f.saldo=+f.saldo||0; f.prov_fecha=f.prov_fecha||'';});
     D.cdp.forEach(c=>{c.saldo=+c.saldo||0; c.estado=(c.estado||'vigente').toLowerCase(); c.fecha_aplicado=c.fecha_aplicado||'';});
     D.polizas.forEach(p=>{p.monto=+p.monto||0;p.ahorro=+p.ahorro||0});
     D.bienes.forEach(b=>{b.valor=+b.valor||0});
@@ -1271,6 +1292,13 @@ async function saveSection(sheet, headers, rows) {
   await shSet('CONFIG!A1', [['tipo_cambio','updated'],[D.tipo_cambio, new Date().toISOString()]]);
   toast('✅ Guardado en Google Sheets');
 }
+
+// FONDOS schema centralizado (v1.6: +prov_fecha, marca del saldo provisional). Un solo
+// lugar define columnas y mapea filas, para que agregar un campo no obligue a sincronizar
+// a mano los ~4 puntos de guardado — la trampa "contagiosa" que ya mordió con HISTORIAL.
+const FONDOS_HDR = ['id','nombre','titular','saldo','moneda','tipo','vence','prov_fecha'];
+const fondoRow   = f => [f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence,f.prov_fecha||''];
+const saveFondosSheet = () => saveSection('FONDOS', FONDOS_HDR, D.fondos.map(fondoRow));
 
 // ─── GOOGLE AUTH ─────────────────────────────────────────────────
 let tokenClient;
@@ -1515,6 +1543,7 @@ function renderDash(){
 function renderFondos(){
   const tU=D.fondos.filter(f=>f.moneda==='USD').reduce((s,f)=>s+f.saldo,0);
   const tC=D.fondos.filter(f=>f.moneda==='CRC').reduce((s,f)=>s+f.saldo,0);
+  const provs=D.fondos.filter(f=>f.prov_fecha);
   document.getElementById('fondosC').innerHTML=`
     <div class="kg"><div class="kc"><div class="kl">💵 Total USD</div><div class="kv">${fU(tU)}</div></div>
       <div class="kc"><div class="kl">🇨🇷 Total CRC</div><div class="kv">${fC(tC)}</div><div class="ks">${fU(tC/tc())} equiv.</div></div>
@@ -1522,12 +1551,13 @@ function renderFondos(){
         <div class="ks">USD + CRC en dólares</div>
         <div class="tc-edit"><label>T.C. ₡</label><input type="number" step="0.01" id="tcFondos" value="${D.tipo_cambio}" onkeydown="if(event.key==='Enter')updateTC('tcFondos')"/>
           <button type="button" onclick="updateTC('tcFondos')">Actualizar</button></div></div></div>
+    ${provs.length?`<div class="info-box" style="background:#fffbeb;border-color:#fcd34d;color:#92400e">🕑 <b>${provs.length}</b> fondo(s) con saldo <b>provisional</b> — se confirman solos al cargar el estado de cuenta de fin de mes.</div>`:''}
     <div class="tc"><div class="tw"><table>
       <thead><tr><th>Fondo</th><th>Titular</th><th>Moneda</th><th>Saldo</th><th>Equiv. USD</th><th>Tipo</th><th>Vence</th></tr></thead>
       <tbody>${D.fondos.map(f=>`<tr>
         <td style="font-weight:700">${f.nombre}</td><td>${f.titular}</td>
         <td><span class="b ${f.moneda==='USD'?'b-blue':'b-purple'}">${f.moneda}</span></td>
-        <td class="${f.moneda==='USD'?'ausd':'acrc'}">${f.moneda==='USD'?fU(f.saldo):fC(f.saldo)}</td>
+        <td class="${f.moneda==='USD'?'ausd':'acrc'}">${f.moneda==='USD'?fU(f.saldo):fC(f.saldo)}${f.prov_fecha?`<div class="prov-tag">🕑 provisional · ${fmtFecha(f.prov_fecha)} · <a onclick="quitarProvisional('${f.id}')">quitar</a></div>`:''}</td>
         <td class="ausd">${fU(toUSD(f.saldo,f.moneda))}</td>
         <td>${f.tipo}</td><td style="font-size:12px;color:var(--muted)">${f.vence}</td>
       </tr>`).join('')}</tbody></table></div></div>`;
@@ -1979,7 +2009,7 @@ function renderCuentas(){
 const MOD_MAP = {fondos:'ovFondos',cdp:'ovCdp',bienes:'ovBienes',mov:'ovMov',pdf:'ovPdf',
   polizas:'ovPolizas',cuentas:'ovCuentas',
   addFondo:'ovAddFondo',addCdp:'ovAddCdp',addPoliza:'ovAddPoliza',addBien:'ovAddBien',addCuenta:'ovAddCuenta',
-  addOcasional:'ovAddOcasional',editGastos:'ovEditGastos'};
+  addOcasional:'ovAddOcasional',editGastos:'ovEditGastos',provisional:'ovProvisional'};
 function openMod(k){
   if(k==='fondos') buildFondosForm();
   if(k==='cdp') buildCdpForm();
@@ -1994,6 +2024,7 @@ function openMod(k){
   if(k==='addOcasional') prepareAddOcasional();
   if(k==='editGastos') buildEditGastosForm();
   if(k==='mov') prepareAddMov();
+  if(k==='provisional') prepareProvisional();
   document.getElementById(MOD_MAP[k]).classList.add('open');
 }
 function closeMod(k){document.getElementById(MOD_MAP[k]).classList.remove('open');}
@@ -2034,8 +2065,7 @@ async function saveFondos(){
   });
   D.tipo_cambio=parseFloat(document.getElementById('ftc').value)||510;
   try{
-    await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
-      D.fondos.map(f=>[f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence]));
+    await saveFondosSheet();
     renderAll(); closeMod('fondos');
   }catch(e){ toast('❌ '+e.message, true); }
 }
@@ -2208,10 +2238,10 @@ async function addFondo(){
     moneda:document.getElementById('afm').value,
     tipo:document.getElementById('aftipo').value,
     vence:document.getElementById('afv').value||''};
+  f.prov_fecha='';
   D.fondos.push(f);
   try{
-    await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
-      D.fondos.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.moneda,x.tipo,x.vence]));
+    await saveFondosSheet();
     renderAll(); closeMod('addFondo');
   }catch(e){ D.fondos.pop(); toast('❌ '+e.message,true); }
 }
@@ -2284,8 +2314,7 @@ async function delFondo(id){
   if(!confirm(`¿Eliminar "${f.nombre}"?\nSaldo: ${f.moneda==='USD'?fU(f.saldo):fC(f.saldo)}`)) return;
   const backup=[...D.fondos]; D.fondos=D.fondos.filter(x=>x.id!==id);
   try{
-    await saveSection('FONDOS',['id','nombre','titular','saldo','moneda','tipo','vence'],
-      D.fondos.map(x=>[x.id,x.nombre,x.titular,x.saldo,x.moneda,x.tipo,x.vence]));
+    await saveFondosSheet();
     buildFondosForm(); renderAll();
   }catch(e){ D.fondos=backup; toast('❌ '+e.message,true); }
 }
@@ -2364,12 +2393,66 @@ async function saveMov(){
   entry.fecha_import = hoyLocal();
   const idx=D.historial.findIndex(h=>+h.anio===anio&&h.mes===entry.mes&&h.fondo===fondo&&(h.titular||'')===(entry.titular||''));
   if(idx>=0) D.historial[idx]=entry; else D.historial.push(entry);
+  // Registrar el mes más reciente de un fondo también CONFIRMA: fija el saldo mostrado y
+  // quita la marca provisional, igual que cargar el PDF. Un mes atrasado no toca el saldo.
+  const mesIdx = m => MESES_ES.indexOf(String(m||'').toUpperCase());
+  const scoreEntry = entry.anio*12 + mesIdx(entry.mes);
+  const maxScore = Math.max(scoreEntry, ...D.historial
+    .filter(h=>h.fondo===fondo && h.moneda===f.moneda && (h.titular||'')===(f.titular||''))
+    .map(h=>+h.anio*12 + mesIdx(h.mes)));
+  const confirma = scoreEntry >= maxScore;
+  if(confirma){ f.saldo = entry.saldo_final; f.prov_fecha=''; }
   try{
     await saveSection('HISTORIAL',
       ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],
       D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'',h.titular||'']));
+    if(confirma) await saveFondosSheet();
     renderAll(); closeMod('mov');
   }catch(e){ toast('❌ '+e.message, true); }
+}
+
+// ─── SALDO PROVISIONAL ───────────────────────────────────────────
+// JC anota el saldo total que ve en el banco a mitad de mes. Se muestra al instante
+// (Dashboard incluido) marcado como provisional; el PDF/registro de mes lo confirma.
+function prepareProvisional(){
+  document.getElementById('pvFondo').innerHTML = D.fondos.map(f =>
+    `<option value="${f.id}">${f.nombre} · ${f.titular} · ${f.moneda}</option>`
+  ).join('');
+  pvSyncActual();
+}
+function pvSyncActual(){
+  const f = D.fondos.find(x=>x.id===document.getElementById('pvFondo').value);
+  const inp = document.getElementById('pvActual');
+  const s   = document.getElementById('pvSaldo');
+  if(!f){ inp.value=''; return; }
+  inp.value = (f.moneda==='USD'?fU(f.saldo):fC(f.saldo)) + (f.prov_fecha?'  · provisional':'  · confirmado');
+  s.value=''; s.placeholder = String(+f.saldo||0);
+}
+async function saveProvisional(){
+  const f = D.fondos.find(x=>x.id===document.getElementById('pvFondo').value);
+  if(!f){ toast('❌ Seleccioná un fondo', true); return; }
+  const raw = document.getElementById('pvSaldo').value;
+  if(raw==='' || isNaN(parseFloat(raw))){ toast('❌ Escribí el saldo que ves en el banco', true); return; }
+  const nuevo = parseFloat(raw);
+  if(nuevo < 0){ toast('❌ El saldo no puede ser negativo', true); return; }
+  const prev = {saldo:f.saldo, prov_fecha:f.prov_fecha};
+  f.saldo = nuevo; f.prov_fecha = hoyLocal();
+  try{
+    await saveFondosSheet();
+    renderAll(); closeMod('provisional');
+    toast('✅ Saldo provisional guardado — el estado de cuenta lo confirmará');
+  }catch(e){ f.saldo=prev.saldo; f.prov_fecha=prev.prov_fecha; toast('❌ '+e.message, true); }
+}
+async function quitarProvisional(id){
+  const f = D.fondos.find(x=>x.id===id);
+  if(!f || !f.prov_fecha) return;
+  const s = f.moneda==='USD'?fU(f.saldo):fC(f.saldo);
+  if(!confirm(`¿Quitar la marca "provisional" de "${f.nombre}"?\n\nEl saldo (${s}) se queda igual; solo se saca el aviso.`)) return;
+  const prev = f.prov_fecha; f.prov_fecha='';
+  try{
+    await saveFondosSheet();
+    renderAll(); toast('✅ Marca provisional quitada');
+  }catch(e){ f.prov_fecha=prev; toast('❌ '+e.message, true); }
 }
 
 // ─── IMPORTAR PDF ────────────────────────────────────────────────
@@ -2564,9 +2647,16 @@ async function importPdfRows(){
         return tWords.some(w => cNorm.includes(w));
       }) || null;
     }
-    if(f && Math.abs((+f.saldo||0) - info.saldo) > 0.5){
-      f.saldo = info.saldo;
-      propagados++;
+    if(f){
+      // El estado de cuenta oficial MANDA: pisa el saldo (incluido cualquier provisional)
+      // y quita la marca. Se cuenta también cuando solo había que limpiar lo provisional,
+      // por si el número provisional coincidía con el oficial (< 0.5 de diferencia).
+      const cambiaSaldo = Math.abs((+f.saldo||0) - info.saldo) > 0.5;
+      if(cambiaSaldo || f.prov_fecha){
+        f.saldo = info.saldo;
+        f.prov_fecha = '';
+        propagados++;
+      }
     }
   }
   try{
@@ -2574,9 +2664,7 @@ async function importPdfRows(){
       ['anio','mes','fondo','moneda','saldo_inicial','aportes','retiros','tasa','interes','saldo_final','fecha_import','titular'],
       D.historial.map(h=>[h.anio,h.mes,h.fondo,h.moneda,h.saldo_inicial,h.aportes,h.retiros,h.tasa,h.interes,h.saldo_final,h.fecha_import||'',h.titular||'']));
     if(propagados){
-      await saveSection('FONDOS',
-        ['id','nombre','titular','saldo','moneda','tipo','vence'],
-        D.fondos.map(f=>[f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence]));
+      await saveFondosSheet();
     }
     toast('✅ '+toApply.length+' registro(s) importado(s)'+(propagados?` · ${propagados} fondo(s) actualizado(s) en pestaña Fondos`:''));
     renderAll(); closeMod('pdf');
@@ -2593,9 +2681,9 @@ function exportExcel(){
   const resRows=[
     ['CONTROL DE INVERSIONES — JC','','','','',''],
     ['Generado:',new Date().toLocaleString('es-CR'),'','T.C.:',tc_,''],[''],
-    ['FONDOS DE INVERSIÓN','','','','',''],
-    ['Nombre','Titular','Saldo','Moneda','Tipo','Vence'],
-    ...D.fondos.map(f=>[f.nombre,f.titular,+f.saldo,f.moneda,f.tipo,f.vence]),
+    ['FONDOS DE INVERSIÓN','','','','','',''],
+    ['Nombre','Titular','Saldo','Moneda','Tipo','Vence','Estado'],
+    ...D.fondos.map(f=>[f.nombre,f.titular,+f.saldo,f.moneda,f.tipo,f.vence,f.prov_fecha?('Provisional '+f.prov_fecha):'Confirmado']),
     ['','','','','',''],
     ['TOTAL USD (fondos)','',+D.fondos.filter(f=>f.moneda==='USD').reduce((s,f)=>s+f.saldo,0),'','',''],
     ['TOTAL CRC (fondos)','',+D.fondos.filter(f=>f.moneda==='CRC').reduce((s,f)=>s+f.saldo,0),'CRC','',''],
