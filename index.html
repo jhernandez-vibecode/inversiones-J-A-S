@@ -36,7 +36,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .ls:last-child{border-right:none}
 .ls-v{font-size:15px;font-weight:700;color:var(--navy)}
 .ls-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
-#gBtn{display:flex;justify-content:center}
+/* Botón propio (no el iframe de Google): un solo botón para un solo flujo — ver initGSI */
+#gBtn{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  padding:11px 20px;border:1px solid #dadce0;border-radius:999px;background:#fff;
+  font-family:inherit;font-size:14px;font-weight:600;color:#3c4043;cursor:pointer;
+  transition:background .15s,box-shadow .15s,border-color .15s}
+#gBtn:hover:not(:disabled){background:#f7f8fa;border-color:#d2d5da;
+  box-shadow:0 1px 3px rgba(60,64,67,.18)}
+#gBtn:active:not(:disabled){background:#eceff3}
+#gBtn:disabled{opacity:.55;cursor:default}
+#gBtn svg{width:18px;height:18px;flex:none}
 .lc-note{font-size:11px;color:var(--muted);margin-top:20px}
 #loginError{color:var(--red);font-size:13px;margin-top:12px;display:none}
 
@@ -350,7 +359,15 @@ tfoot td.tf-amount .tf-paid{font-size:11px;font-weight:600;color:var(--emerald);
       <div class="ls"><div class="ls-v">6</div><div class="ls-l">Categorías</div></div>
       <div class="ls"><div class="ls-v">Excel</div><div class="ls-l">Exportar</div></div>
     </div>
-    <div id="gBtn"></div>
+    <button type="button" id="gBtn" onclick="pedirAcceso()" disabled>
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      <span id="gBtnTxt">Cargando…</span>
+    </button>
     <div id="loginError"></div>
     <div class="lc-note">Solo cuentas autorizadas pueden acceder</div>
   </div>
@@ -909,6 +926,7 @@ const DEFAULT = {
 let ACCESS_TOKEN = '';
 let SHEET_ID     = '';   // se resuelve por usuario al iniciar sesión (clave inv_sheet_id_v2::<email>)
 let USER_KEY     = '';   // clave de caché del usuario logueado (inv_sheet_id_v2::<email>)
+let CURRENT_USER = null; // usuario del login EN CURSO (la sesión no se guarda hasta que termina bien)
 let D            = null;
 let selYear      = String(new Date().getFullYear());
 let histPage     = 0;
@@ -942,8 +960,9 @@ function refreshAccessToken(){
       }
     },15000);
     try{
-      // hint fija la cuenta de la sesión activa (2 usuarios pueden compartir navegador)
-      const u = JSON.parse(sessionStorage.getItem(SS_USER)||'null');
+      // hint fija la cuenta de la sesión activa (2 usuarios pueden compartir navegador).
+      // CURRENT_USER primero: durante un login en curso todavía no hay sesión guardada.
+      const u = CURRENT_USER || JSON.parse(sessionStorage.getItem(SS_USER)||'null');
       tokenClient.requestAccessToken({prompt:'', hint:(u&&u.email)||undefined});
     }
     catch(e){ pendingTokenResolve=pendingTokenReject=null; reject(e); }
@@ -1301,9 +1320,31 @@ const fondoRow   = f => [f.id,f.nombre,f.titular,f.saldo,f.moneda,f.tipo,f.vence
 const saveFondosSheet = () => saveSection('FONDOS', FONDOS_HDR, D.fondos.map(fondoRow));
 
 // ─── GOOGLE AUTH ─────────────────────────────────────────────────
+// UN botón, UN flujo. Hasta el 30 jul 2026 convivían acá dos sistemas distintos de Google:
+// el botón oficial de google.accounts.id (IDENTIDAD, con el callback VACÍO) y el tokenClient
+// (PERMISO para leer la hoja) colgado de su click_listener. Un solo clic abría DOS ventanas
+// —medido: window.open llamado 2 veces— y la de identidad no hacía nada. Quien atendía esa
+// quedaba autenticado para Google y en la pantalla de login para la app, sin ningún mensaje
+// de error, porque desde acá nunca pasó nada. Clic de nuevo, dos ventanas de nuevo: el bucle
+// que reportó JC. El ID token nunca se usó — el correo sale de oauth2/v3/userinfo.
 let tokenClient;
+let gsiTries = 0;
+const gsiTxt = t => { document.getElementById('gBtnTxt').textContent = t; };
+
+// Único disparador del login. El botón vive en el HTML (no lo dibuja Google): si el script
+// de Google no carga, antes no quedaba ningún botón y la pantalla se veía simplemente rota.
+function pedirAcceso(){
+  if(!tokenClient){ showErr('Google todavía no cargó. Recargá la página.'); return; }
+  document.getElementById('loginError').style.display='none';
+  tokenClient.requestAccessToken();
+}
+
 function initGSI() {
-  if(typeof google==='undefined'){setTimeout(initGSI,300);return;}
+  if(typeof google==='undefined' || !(google.accounts&&google.accounts.oauth2)){
+    // No reintentar para siempre en silencio: a los ~9s decilo.
+    if(++gsiTries > 30){ gsiTxt('No cargó Google — recargá la página'); return; }
+    setTimeout(initGSI,300); return;
+  }
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: 'email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
@@ -1322,10 +1363,8 @@ function initGSI() {
       }
     }
   });
-  google.accounts.id.initialize({client_id:CLIENT_ID, callback:()=>{}});
-  google.accounts.id.renderButton(document.getElementById('gBtn'),
-    {theme:'outline',size:'large',text:'signin_with',shape:'pill',width:260,locale:'es',
-     click_listener:()=>tokenClient.requestAccessToken()});
+  document.getElementById('gBtn').disabled = false;
+  gsiTxt('Iniciar sesión con Google');
   // Si había sesión guardada, pedir token silenciosamente (hint fija la cuenta correcta)
   if(sessionStorage.getItem(SS_USER)){
     const u = JSON.parse(sessionStorage.getItem(SS_USER)||'null');
@@ -1356,7 +1395,10 @@ async function handleToken(resp) {
     if(!ALLOWED.includes(user.email)){
       showErr('Acceso no autorizado para '+user.email); ACCESS_TOKEN=''; return;
     }
-    sessionStorage.setItem(SS_USER, JSON.stringify(user));
+    // La sesión NO se guarda todavía. Si se guarda acá y algo falla más abajo (resolver la
+    // hoja), cada recarga vuelve a intentar sola y a fallar igual sin que JC toque nada: un
+    // bucle silencioso. Se guarda recién cuando el login llega a buen puerto, más abajo.
+    CURRENT_USER = user;
     // Resolver el spreadsheet DEL USUARIO: clave por email + validación de acceso.
     // (La clave legacy compartida hacía que un segundo usuario en el mismo navegador
     //  intentara usar el sheet del primero y recibiera 403.)
@@ -1389,6 +1431,7 @@ async function handleToken(resp) {
     }
     if(!sid){ showErr('No se conectó ninguna hoja de datos. Recargá la página para intentarlo de nuevo.'); return; }
     conectarHoja(sid);
+    sessionStorage.setItem(SS_USER, JSON.stringify(user));  // login completo: recién ahora hay sesión
     showApp(user);
     await loadFromSheets();
   } catch(e) {
@@ -1411,6 +1454,7 @@ function showErr(msg) {
 
 document.getElementById('btnOut').onclick = ()=>{
   sessionStorage.removeItem(SS_USER);
+  CURRENT_USER=null;
   ACCESS_TOKEN='';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('app').style.display='none';
