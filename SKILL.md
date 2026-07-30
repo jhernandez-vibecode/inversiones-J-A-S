@@ -7,19 +7,19 @@ description: ESPECIALISTA EN INVERSIONES J-A-S — App web personal de Juan Carl
 
 Contexto completo del proyecto **inversiones-J-A-S** para retomar trabajo sin perder contexto.
 
-## Checkpoint 17 jul 2026 (v1.6 — saldo provisional entre estados de cuenta)
+## Checkpoint 30 jul 2026 (v1.6.1 — un solo botón de login)
 
 ### Estado del proyecto
-- **Producción:** Netlify (URL `*.netlify.app` — JC tiene la URL exacta) — auto-deploy desde `main`
+- **Producción:** https://inversiones-j-a-s.netlify.app/ — auto-deploy desde `main`
 - **Repo:** https://github.com/jhernandez-vibecode/inversiones-J-A-S
 - **Local:** `C:\Users\segur\Documents\GitHub\inversiones-J-A-S\`
 - **Rama activa:** `main`
-- **Último commit (código):** `c0a6655` — feat: v1.6 — saldo provisional entre estados de cuenta
-- **Último commit (docs):** `6b1f651` — docs: SKILL.md checkpoint v1.6
+- **Último commit (código):** `bc7715f` — fix: un solo botón de login (el doble flujo de Google causaba el bucle)
+- **Commit anterior (código):** `c0a6655` — feat: v1.6 — saldo provisional entre estados de cuenta
 - **v1.5 y v1.6 salieron el MISMO día** (17 jul 2026): fueron 2 features en la misma sesión.
 - **Hoja de datos real de JC:** `10PPnb3czhFs0DHn1KF6LDd6xmVFWjG2SL0TRIShk9bQ` (creada 24 abr 2026)
 - **OAuth Client ID** (Google Cloud): `446215450096-i2s3glor63qodpf3t12ogdgunedqgp27.apps.googleusercontent.com`
-- **Tamaño actual:** ~2980 líneas index.html
+- **Tamaño actual:** ~3024 líneas index.html
 
 ### Qué está en producción
 
@@ -197,6 +197,7 @@ Patrón con `MOD_MAP` (clave → ID overlay) + `openMod(k)` que dispatcha al bui
 | **v1.1** | 28 abr 2026 | **Pestaña Gastos Fijos** — 19 gastos seed · KPIs total/Q1/Q2/% pagado · toggle pagado interactivo · histórico mensual · pagos ocasionales · modal editar · 3 hojas nuevas. Commit `dcce5ab` |
 | **v1.2** | 2 may 2026 | **Multi-titular en HISTORIAL + Filtros + UX fixes**. Hilo completo: <br>• `fix: parser PDF reconoce fondo correctamente y propaga saldo a pestaña Fondos` (`5f2eded`) — antes capturaba "BN Sociedad Administradora..." como nombre del fondo<br>• `feat: editar nombre de fondos + botón eliminar registros del historial` (`bc1c2f6`)<br>• `fix: dropdown Reemplazar/Saltar en importar PDF re-renderiza para mostrar el botón Importar` (`7383206`)<br>• `feat: fecha de import en historial + filtro de movimientos por fondo` (`bbe3e00`)<br>• `feat: HISTORIAL distingue JC vs Alba por titular en fondos compartidos` (`9f2fa3e`)<br>• `fix: filtro Movimientos muestra saldo actual del fondo + arregla duplicación de líneas` (`450fe76`)<br>• `fix: gráficos Dashboard e Historial muestran las 4 series siempre` (`344a2ac`) |
 | **v1.3** | 14 may 2026 | **🏆 Ranking de Rendimiento en Fondos**. Card nueva debajo de la tabla de fondos. Hilo: <br>• `feat: ranking de rendimiento en pestaña Fondos (v1.3)` (`ea90468`) — toggle métrica tasa%/ganancias + toggle período mes/año + selectores dinámicos año/mes (solo con datos) + ranking DESC con medallas 🥇🥈🥉 + empty state. Tasa anual = compuesto ∏(1+t/100)−1. Ganancias en USD equiv. usando `toUSD()`. Reutiliza `matchHistorialFondo()` para respetar multi-titular v1.2.<br>• `feat: ranking de Fondos suma KPIs de total acumulado + promedio mensual` (`edb47cb`) — cuando la métrica es ganancias, aparecen 2 KPIs arriba de la tabla: 💰 Total acumulado (Σ ganancias del período) + 📊 Promedio mensual (total ÷ meses con datos en HISTORIAL). En vista mensual N=1 y se aclara en sub-texto. En vista anual usa solo meses con datos, no ÷12, así no se diluye con meses futuros.<br>• `docs: SKILL.md checkpoint v1.3` (`946f34d`).<br>**Por qué:** JC quería ver cuál fondo rinde mejor sin tener que abrir Historial y comparar mes a mes. Pidió métrica + filtro de período + total acumulado + promedio mensual. |
+| **v1.6.1** | 30 jul 2026 | **Un solo botón de login** (`bc7715f`) — JC reportó que se autenticaba con Google y la app lo devolvía al login, en bucle. Causa: convivían `google.accounts.id` (identidad, callback vacío) y el `tokenClient` (permiso de la hoja) colgado de su `click_listener`; **un clic abría DOS ventanas** y la de identidad no hacía nada. Arreglo: botón propio en el HTML, un único disparador `pedirAcceso()`. Además la sesión se guarda recién al terminar bien el login (antes, si fallaba la resolución de la hoja, cada F5 reintentaba solo y fallaba igual). Verificado en producción: 1 apertura por clic. Ver sección "El login tiene UN solo flujo". |
 | **v1.6** | 17 jul 2026 | **Saldo provisional entre estados de cuenta** (`c0a6655` + docs `6b1f651`) — JC anota el saldo total que ve en el banco a mitad de mes, se refleja al instante marcado como provisional, y el PDF/registro de mes lo confirma y pisa. Ver sección "Saldo provisional entre estados de cuenta". FONDOS +col `prov_fecha` (A:H), centralizado en `FONDOS_HDR`/`fondoRow()`/`saveFondosSheet()`. Botón `🕑 Saldo al día` + modal `ovProvisional` + `.prov-tag` + `quitarProvisional()`. |
 | **v1.5** | 17 jul 2026 | **La app nunca más inventa una hoja** (`0e0e8f6` + docs `69bf693` y `144bdfd`) — a raíz del incidente CCleaner del 17 jul (ver sección "La hoja de datos se descubre, no se inventa"). `buscarHojasApp()` + `esHojaInversiones()` + `resumenHoja()` + `pedirHoja()` + `conectarHoja()` + `openHojaPanel()`. Login: sin caché se le pregunta a Drive; 1 hoja se reconecta sola, varias se eligen, ninguna se ofrece crear. Nuevo botón **🔗 Hoja** en el header. Modal `ovHoja` (fuera de `#app`, visible en login). `♻️ Restaurar Excel` pide escribir `RESTAURAR`. Global `USER_KEY`. |
 | **v1.4** | 11 jun 2026 | **Hardening total** (`6aab6a4` + docs `4a97883`) — auditoría línea por línea + revisión adversaria multi-agente (16 hallazgos confirmados, 0 refutados). **Pusheado a main el 11 jun con OK explícito de JC — EN PRODUCCIÓN.** <br>**Datos:** Restaurar Excel limpia las 10 hojas (antes 7) · `loadFromSheets` aborta si CUALQUIER lectura falla (`shGetSafe` devuelve `null`, nunca `[]`) para que el autofill jamás pise datos reales · `shClear` lanza en error · try/catch+toast en los 6 saves de modales. <br>**Auth:** sheet ID por usuario `inv_sheet_id_v2::<email>` + validación de acceso en cada login + adopción de clave legacy · renovación automática de token en 401 (`authFetch` + `refreshAccessToken` singleton con timeout 15s por identidad + `error_callback` + `hint` de cuenta en TODOS los `requestAccessToken`) · `showApp` corre DESPUÉS de resolver el sheet · errores siempre visibles (toast si app abierta, `#loginError` si no). <br>**Fechas:** `parseFechaLocal`/`fmtFecha` (CR es UTC-6: `2026-12-01` ya no se muestra como 30 nov) · `hoyLocal()` en fecha_aplicado/fecha_import/nombre Excel (toISOString daba el día siguiente después de 6pm) · CDP sin fecha → badge "Sin fecha". <br>**UI:** Dashboard excluye CDPs aplicados de KPI/donut/Patrimonio/tabla (`cdpVig`) y `markCDP` llama `renderAll()` · años dinámicos en Historial (`histYearRow`/`setHistYear`), modal Registrar mes y gráfico Dashboard (cero años hardcodeados) · `escAttr` en todos los value de formularios · Excel exporta Estado + Fecha Aplicado de CDPs. <br>**Nota:** quedó anotado como deuda conocida (no bloqueante): `saveSection` clear→write no atómico, y escape de texto HTML (self-XSS) fuera de atributos. |
@@ -230,6 +231,44 @@ inline. Agregar un campo a FONDOS = tocar solo esas 3 líneas + el range de lect
 2 sitios en loadFromSheets) + la coerce. Esto mata la trampa "contagiosa" que sufrió HISTORIAL.
 **Retrocompat:** hojas viejas sin la columna leen `prov_fecha=''` (no provisional) y se actualizan
 solas al primer guardado de FONDOS.
+
+## 🔴 El login tiene UN solo flujo (v1.6.1 — 30 jul 2026)
+
+**El síntoma:** JC hacía clic, se autenticaba con Google, y la app lo devolvía a la pantalla de
+login. Otra vez, y otra. Un bucle, y sin ningún mensaje de error.
+
+**La causa:** en el login convivían **dos sistemas distintos de Google** al mismo tiempo:
+- `google.accounts.id` — el botón oficial "Iniciá sesión con Google" (IDENTIDAD, devuelve un
+  **ID token**). Su callback era `()=>{}`: **vacío, no hacía nada**. La app nunca usó el ID
+  token — el correo del usuario sale de `oauth2/v3/userinfo` con el access token.
+- `google.accounts.oauth2` (`tokenClient`) — el **PERMISO** para leer/escribir la hoja. Es el
+  único que abre la app, y estaba colgado del `click_listener` del botón anterior.
+
+Un solo clic disparaba los dos. **Medido con un hook sobre `window.open`: 2 aperturas por
+clic.** Si JC atendía la ventana equivocada —justamente la que dice "Inicia sesión como Juan
+Carlos", que es la que parece la correcta— Google lo autenticaba de verdad y **la app no se
+enteraba de nada**: se quedaba en el login, sin error, porque desde el código nunca pasó nada.
+Clic de nuevo, dos ventanas de nuevo.
+
+**El arreglo:** botón propio en el HTML (logo de Google en SVG inline) con un único disparador,
+`pedirAcceso()` → `tokenClient.requestAccessToken()`. Verificado en producción: **1 apertura por
+clic** y login completo.
+
+**Reglas que quedan:**
+- ❌ **Nunca volver a meter `google.accounts.id`** (ni `renderButton`, ni `click_listener`) en
+  esta app. No aporta nada: lo único que hace falta es el access token.
+- ✅ **El botón vive en el HTML, no lo dibuja Google.** Antes, si el script de GIS no cargaba no
+  quedaba **ningún** botón y la pantalla se veía rota en silencio. Ahora arranca deshabilitado
+  con "Cargando…" y a los ~9s dice qué pasó.
+- ✅ **La sesión (`sessionStorage`) se guarda recién cuando el login llega a buen puerto**, ya
+  con la hoja conectada. Antes se guardaba apenas pasaba la lista blanca: si después fallaba la
+  resolución de la hoja, cada F5 reintentaba solo y fallaba igual sin que JC tocara nada — un
+  segundo bucle, este silencioso. `CURRENT_USER` sostiene el hint de cuenta durante el login.
+
+**Cómo se diagnosticó (sirve para la próxima):** el síntoma no deja rastro en la consola, porque
+para la app no pasó nada. Lo que lo delató fue envolver `window.open` en la página y contar las
+aperturas de un clic. Si algún día el login vuelve a "no hacer nada", ese es el primer
+experimento — antes de tocar una línea de código.
 
 ## 🔴 La hoja de datos se descubre, no se inventa (v1.5 — 17 jul 2026)
 
@@ -298,6 +337,9 @@ es **UI muerta** (`loadFromSheets` siempre lo esconde y nada lo muestra).
 - `MOD_MAP[clave] = 'ovOverlayId'` — si agregás modal, agregalo al MOD_MAP
 - Si agregás columna a HISTORIAL: actualizar (1) defaultPayload header, (2) shGetSafe range A:L → A:M, (3) los 3 saves de saveSection('HISTORIAL',...) — son `deleteHistorial`, `saveMov`, `importPdfRows`. Olvidar uno corrompe el sheet.
 - Si agregás columna a FONDOS: desde v1.6 está centralizado. Tocar solo `FONDOS_HDR` + `fondoRow()` (un lugar) + los 2 rangos de lectura `FONDOS!A:H` en loadFromSheets + la coerce. Todos los guardados usan `saveFondosSheet()`; NO agregar `saveSection('FONDOS',…)` inline. Replicá este patrón (HDR const + rowMapper + saveXSheet) si otra hoja gana columnas.
+- **Login: un solo flujo, un solo botón.** El único disparador es `pedirAcceso()` →
+  `tokenClient.requestAccessToken()`. NO volver a meter `google.accounts.id` / `renderButton` /
+  `click_listener`: eso fue el bucle del 30 jul (v1.6.1). Ver la sección "El login tiene UN solo flujo".
 
 ⚠️ **Multi-titular HISTORIAL** *(v1.2)*:
 - El historial guarda fondo **canónico** (`CRECIFONDO`/`SUPERFONDO DOLARES PLUS`/`BN INTERNACIONAL SUMA`) + titular del PDF.
