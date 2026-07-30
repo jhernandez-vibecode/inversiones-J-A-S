@@ -1,6 +1,6 @@
 ---
 name: especialista-inversiones-J-A-S
-description: ESPECIALISTA EN INVERSIONES J-A-S — App web personal de Juan Carlos + Alba María para llevar el control del portafolio familiar (fondos, CDP, pólizas, bienes, cuentas) + Gastos Fijos por quincena. Single-file HTML/JS en Netlify, auth Gmail con whitelist, Google Sheets como base de datos, gráficos Chart.js, export Excel. Usar este skill cuando JC pida cualquier cambio o mejora al proyecto.
+description: ESPECIALISTA EN INVERSIONES J-A-S — App web personal de Juan Carlos + Alba María para llevar el control del portafolio familiar (fondos, CDP, pólizas, bienes, cuentas) + Gastos Fijos por quincena. EN PROD en https://inversiones-j-a-s.netlify.app/ (repo jhernandez-vibecode/inversiones-J-A-S, local C:\Users\segur\Documents\GitHub\inversiones-J-A-S). Single-file HTML/JS en Netlify, auth Google con whitelist, Google Sheets como base de datos, gráficos Chart.js, export Excel. Usar este skill cuando JC pida cualquier cambio o mejora al proyecto.
 ---
 
 # Especialista Inversiones J-A-S
@@ -388,6 +388,10 @@ Este SKILL.md es la **memoria única** del proyecto: no hay nodos en el Claude M
 
 ## Recursos relacionados
 
+- **App en producción: https://inversiones-j-a-s.netlify.app/**
 - Repo: https://github.com/jhernandez-vibecode/inversiones-J-A-S
 - Mockup intermedio v1.1: `inversiones-J-A-S/mockup-gastos-fijos.html` (untracked, se puede borrar tras validación)
-- OAuth Client en Google Cloud Console: `446215450096-...` (Authorized JS origins debe incluir el dominio Netlify de JC)
+- OAuth Client en Google Cloud Console: `446215450096-...` — Authorized JS origins:
+  `https://inversiones-j-a-s.netlify.app`. APIs que deben estar habilitadas en el proyecto
+  `446215450096`: **Sheets API** y **Drive API** (esta última desde v1.5; si está apagada, el
+  login no puede resolver la hoja cuando falta el caché).
